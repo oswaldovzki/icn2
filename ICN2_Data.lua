@@ -16,13 +16,14 @@ ICN2.DEFAULTS = {
         -- "fast" | "medium" | "slow" | "realistic" | "custom"
         preset = "medium",
 
-        -- Decay per real-time second (% lost per second) for each preset
-        -- These are base rates; situational multipliers are applied on top.
-        -- Custom rates can override these individually.
+        -- Decay per real-time second (% lost per second) at medium preset (multiplier = 1.0)
+        -- hunger/thirst: 100% in 30 min  → 100 / (30×60) ≈ 0.05556% per second
+        -- fatigue:       100% in 60 min  → 100 / (60×60) ≈ 0.02778% per second
+        -- Situational and race/class multipliers are applied on top of these base values.
         decayRates = {
-            hunger  = 0.0014,   -- ~100% in ~20 minutes at medium
-            thirst  = 0.0028,   -- ~100% in ~10 minutes at medium
-            fatigue = 0.0007,   -- ~100% in ~40 minutes at medium
+            hunger  = 0.05556,
+            thirst  = 0.05556,
+            fatigue = 0.02778,
         },
 
         -- HUD
@@ -163,4 +164,15 @@ ICN2.ARMOR_FATIGUE = {
     MAIL   = 1.10,
     LEATHER= 1.00,
     CLOTH  = 0.90,
+}
+
+-- ── Rest stance fatigue recovery rates (v1.1.2) ───────────────────────────────
+-- Player must stay in the stance continuously. Recovery is % per second.
+-- /lay  → 100% in 40s  (most restful)
+-- /sit  → 100% in 60s  (medium)
+-- /kneel→ 100% in 90s  (least restful)
+ICN2.REST_STANCE_RATES = {
+    lay   = 100 / 40,   -- 2.500% per second
+    sit   = 100 / 60,   -- 1.667% per second
+    kneel = 100 / 90,   -- 1.111% per second
 }

@@ -15,6 +15,11 @@ local elapsed      = 0
 local inCombat   = false
 local isSwimming = false
 
+-- v1.1.2: Rest stance state
+-- stance = "lay" | "sit" | "kneel" | nil
+local restStance          = nil
+local restStanceStartTime = nil
+
 -- ── Deep copy utility ─────────────────────────────────────────────────────────
 local function deepCopy(orig)
     local copy = {}
@@ -196,7 +201,8 @@ frame:RegisterEvent("PLAYER_LOGOUT")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-frame:RegisterEvent("UNIT_AURA")  -- v1.1: food/drink buff tracking
+frame:RegisterEvent("UNIT_AURA")           -- v1.1: food/drink buff tracking
+frame:RegisterEvent("PLAYER_UPDATE_RESTING") -- v1.1.2: catches sit/stand state changes
 
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" then
@@ -217,10 +223,18 @@ frame:SetScript("OnEvent", function(self, event, ...)
 
     elseif event == "PLAYER_REGEN_DISABLED" then
         inCombat = true
+        -- Combat cancels any active rest stance
+        restStance          = nil
+        restStanceStartTime = nil
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         inCombat = false
         ICN2:OnCombatBreakFoodDrink()  -- v1.1: cancel eating/drinking on combat
+
+    elseif event == "PLAYER_UPDATE_RESTING" then
+        -- v1.1.2: player stood up or changed stance — clear rest stance
+        -- The OnUpdate loop re-detects it next tick if still seated/lying
+        ICN2:DetectRestStance()
 
     elseif event == "UNIT_AURA" then
         -- v1.1: delegate to FoodDrink module
@@ -245,18 +259,75 @@ frame:SetScript("OnUpdate", function(self, dt)
     if elapsed >= tickInterval then
         elapsed = 0
 
-        -- Swimming detection: check if player is submerged (water)
-        -- IsSubmerged is available on retail
+        -- Swimming detection
         if IsSubmerged and IsSubmerged() then
             isSwimming = true
         else
             isSwimming = false
         end
 
+        -- v1.1.2: detect rest stance each tick (handles emote-triggered stances)
+        ICN2:DetectRestStance()
+
         ICN2:FoodDrinkTick()  -- v1.1: progressive bar fill while eating/drinking
+        ICN2:RestStanceTick() -- v1.1.2: fatigue recovery while in rest stance
         tick()
     end
 end)
+
+-- ── v1.1.2: Rest stance detection ─────────────────────────────────────────────
+-- WoW exposes the player's stance via GetUnitAnimationInfo / UnitStance.
+-- The most reliable retail method is checking the player's current stand state
+-- via the GetStandingState() / UnitIsAFK combo. We use the unit pose API:
+--   0 = standing, 1 = sitting, 2 = sleeping (lay), 3 = kneeling
+-- GetPowerRegen and similar don't expose this; we rely on the numeric stances.
+function ICN2:DetectRestStance()
+    -- Standing up or in combat always clears the stance
+    if inCombat or IsMounted() then
+        restStance          = nil
+        restStanceStartTime = nil
+        return
+    end
+
+    -- GetStandingState returns:
+    -- STANDING (0/nil), SITTING (1), SLEEPING (2), KNEEL (3)
+    -- Available since Classic; stable in TWW.
+    local standState = GetStandingState and GetStandingState() or 0
+
+    local newStance = nil
+    if standState == 3 then
+        newStance = "kneel"
+    elseif standState == 2 then
+        newStance = "lay"
+    elseif standState == 1 then
+        newStance = "sit"
+    end
+
+    if newStance ~= restStance then
+        -- Stance changed — reset timer
+        restStance          = newStance
+        restStanceStartTime = newStance and GetTime() or nil
+    end
+end
+
+-- ── v1.1.2: Fatigue recovery tick while in a rest stance ─────────────────────
+-- Rates are defined in ICN2_Data.lua:
+--   /lay  → 100% in 40s  (2.500%/s)
+--   /sit  → 100% in 60s  (1.667%/s)
+--   /kneel→ 100% in 90s  (1.111%/s)
+-- Recovery is paused if the player is eating, drinking, in combat, or mounted.
+function ICN2:RestStanceTick()
+    if not restStance or not restStanceStartTime then return end
+    if inCombat or IsMounted() then return end
+    -- Don't stack with eating/drinking active (rare edge case)
+    if ICN2:IsEating() or ICN2:IsDrinking() then return end
+
+    local rate = ICN2.REST_STANCE_RATES[restStance]
+    if not rate then return end
+
+    ICN2DB.fatigue = math.min(100, ICN2DB.fatigue + rate)
+    -- HUD update is handled by the main tick() call immediately after
+end
 
 -- ── Racial / class ability recovery table ─────────────────────────────────────
 local ABILITY_RECOVERY = {

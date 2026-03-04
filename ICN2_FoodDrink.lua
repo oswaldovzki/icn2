@@ -1,17 +1,19 @@
 -- ============================================================
--- ICN2_FoodDrink.lua  (v1.1)
+-- ICN2_FoodDrink.lua  (v1.1.2)
 -- Hooks WoW's native food/drink buff events via UNIT_AURA.
 --
 -- How it works:
 --   1. When a "eating" or "drinking" aura appears on the player,
 --      we record the buff start time and expected duration.
---   2. Every tick we grant proportional partial restoration.
---   3. If the buff expires naturally (buff gone after full duration)
---      → full 100% restore of hunger or thirst.
---   4. If the buff disappears early (cancelled by movement, combat,
---      standing up) → partial credit proportional to time elapsed.
---   5. "Well Fed" aura appearing = eating fully completed →
---      immediately top up hunger to 100%.
+--   2. Every tick we trickle restoration proportionally so the
+--      bar visually fills while eating/drinking.
+--   3. If the buff expires naturally (≥85% of duration elapsed)
+--      → +50% restore to hunger or thirst (v1.1.2: capped at 50%).
+--   4. If the buff disappears early (cancelled) →
+--      partial credit proportional to time: up to 50% max.
+--   5. "Well Fed" aura appearing → hunger AND thirst instantly set
+--      to 100%, one-shot, no persistent flag. The buff itself is
+--      not tracked further; normal decay resumes immediately.
 -- ============================================================
 
 ICN2 = ICN2 or {}
@@ -21,23 +23,16 @@ local foodState  = { active = false, startTime = nil, duration = nil, buffName =
 local drinkState = { active = false, startTime = nil, duration = nil, buffName = nil }
 
 -- ── Known aura name fragments (lowercase) ─────────────────────────────────────
--- WoW food buffs all share "Food" or "Refreshment" in their name while active.
--- Drink buffs share "Drink" or "Refreshment" while drinking.
--- Well Fed is the completion buff granted when eating finishes.
--- These are checked with string.find for broad compatibility across expansions.
-local FOOD_AURA_PATTERNS  = { "food", "refreshment", "eating" }
-local DRINK_AURA_PATTERNS = { "drink", "thirst", "drinking", "hydration" }
-local WELLFFED_PATTERNS   = { "well fed" }
--- Some racial/special drink buffs to also catch
+local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }
+local DRINK_AURA_PATTERNS  = { "drink", "thirst", "drinking", "hydration" }
+local WELLFED_PATTERNS     = { "well fed" }
 local DRINK_EXTRA_PATTERNS = { "conjured water", "mana tea", "morning glory" }
 
--- Restoration rate while actively eating/drinking (% per second of buff).
--- The buff typically lasts 30s; we spread the gain across that window.
--- Partial credit on cancel = fraction of total 100% proportional to time.
-local FULL_RESTORE = 100.0  -- % restored on full completion
+-- v1.1.2: Full eat/drink session restores exactly 50% of the need bar.
+-- Partial cancellation grants a proportional fraction of that 50%.
+local FULL_SESSION_RESTORE = 50.0  -- % restored on full uninterrupted session
 
--- ── Utility: scan unit auras using the v10+ API ──────────────────────────────
--- C_UnitAuras.GetAuraDataByIndex replaces the old UnitBuff in TWW.
+-- ── Utility: scan unit auras (C_UnitAuras API, TWW / 10.x+) ──────────────────
 local function scanAuras(unit, filter)
     local results = {}
     local i = 1
@@ -50,7 +45,7 @@ local function scanAuras(unit, filter)
     return results
 end
 
--- ── Check if a name matches any pattern in a list ────────────────────────────
+-- ── Check if a name matches any pattern ──────────────────────────────────────
 local function matchesAny(name, patterns)
     if not name then return false end
     local lower = name:lower()
@@ -61,28 +56,25 @@ local function matchesAny(name, patterns)
 end
 
 -- ── Find a specific aura type on the player ──────────────────────────────────
--- Returns auraData or nil
 local function findAura(patterns, extraPatterns)
     local auras = scanAuras("player", "HELPFUL")
     for _, aura in ipairs(auras) do
-        if matchesAny(aura.name, patterns) then
-            return aura
-        end
-        if extraPatterns and matchesAny(aura.name, extraPatterns) then
-            return aura
-        end
+        if matchesAny(aura.name, patterns) then return aura end
+        if extraPatterns and matchesAny(aura.name, extraPatterns) then return aura end
     end
     return nil
 end
 
--- ── Apply partial or full restoration ────────────────────────────────────────
+-- ── Apply restoration on buff end ────────────────────────────────────────────
+-- full = true  → player finished eating/drinking naturally → +50%
+-- full = false → player was interrupted               → +(50% × fraction)
 local function applyRestore(state, need, full)
     if not state.startTime then return end
 
     local elapsed  = GetTime() - state.startTime
     local duration = state.duration or 30
     local fraction = math.min(1.0, elapsed / math.max(1, duration))
-    local amount   = full and FULL_RESTORE or (FULL_RESTORE * fraction)
+    local amount   = full and FULL_SESSION_RESTORE or (FULL_SESSION_RESTORE * fraction)
 
     if need == "hunger" then
         ICN2DB.hunger = math.min(100, ICN2DB.hunger + amount)
@@ -95,9 +87,9 @@ local function applyRestore(state, need, full)
     ICN2:UpdateHUD()
 
     if full then
-        print(string.format("|cFFFF6600ICN2|r %s fully restored! (100%%)",
+        print(string.format("|cFFFF6600ICN2|r %s restored! (+50%%)",
             need == "hunger" and "|cFF00FF00Hunger|r" or "|cFF4499FFThirst|r"))
-    elseif amount > 1 then
+    elseif amount >= 1 then
         print(string.format("|cFFFF6600ICN2|r %s partially restored (+%.0f%% — interrupted).",
             need == "hunger" and "|cFF00FF00Hunger|r" or "|cFF4499FFThirst|r",
             amount))
@@ -112,20 +104,16 @@ function ICN2:OnUnitAura()
     local foodAura = findAura(FOOD_AURA_PATTERNS)
     if foodAura then
         if not foodState.active then
-            -- Buff just appeared — record state
             foodState.active    = true
             foodState.startTime = now
             foodState.duration  = foodAura.duration or 30
             foodState.buffName  = foodAura.name
         end
-        -- Buff still present — nothing to do, tick handles progressive restore
     else
         if foodState.active then
-            -- Buff disappeared — was it natural completion or cancellation?
             local elapsed  = now - (foodState.startTime or now)
             local duration = foodState.duration or 30
-            local natural  = (elapsed >= duration * 0.85)  -- within 15% of end = natural
-
+            local natural  = (elapsed >= duration * 0.85)
             applyRestore(foodState, "hunger", natural)
             foodState.active    = false
             foodState.startTime = nil
@@ -134,21 +122,25 @@ function ICN2:OnUnitAura()
         end
     end
 
-    -- ── Well Fed aura (eating completion bonus) ───────────────────────────────
-    -- Well Fed appears AFTER the food buff expires naturally.
-    -- We check for it and top up to 100% unconditionally.
-    local wellFedAura = findAura(WELLFFED_PATTERNS)
-    if wellFedAura and not ICN2._wellFedApplied then
-        ICN2._wellFedApplied = true
-        ICN2DB.hunger = 100.0
-        ICN2:UpdateHUD()
-        ICN2:TriggerEmote("satisfied", "hunger")
-        print("|cFFFF6600ICN2|r |cFF00FF00Well Fed!|r Hunger completely restored.")
-
-        -- Reset flag after a short delay (buff can persist for minutes)
-        C_Timer.After(5, function() ICN2._wellFedApplied = false end)
-    elseif not wellFedAura then
-        ICN2._wellFedApplied = false
+    -- ── Well Fed aura (v1.1.2: one-shot, no persistent tracking) ─────────────
+    -- When Well Fed appears, immediately set both hunger and thirst to 100%.
+    -- We do NOT set a persistent flag — the buff can stay on the player for
+    -- minutes and we must not keep firing. Instead we record the aura's
+    -- instanceID so we only trigger once per unique Well Fed application.
+    local wellFedAura = findAura(WELLFED_PATTERNS)
+    if wellFedAura then
+        local id = wellFedAura.auraInstanceID or 0
+        if id ~= ICN2._lastWellFedInstanceID then
+            ICN2._lastWellFedInstanceID = id
+            ICN2DB.hunger = 100.0
+            ICN2DB.thirst = 100.0
+            ICN2:UpdateHUD()
+            ICN2:TriggerEmote("satisfied", "hunger")
+            print("|cFFFF6600ICN2|r |cFF00FF00Well Fed!|r Hunger and Thirst set to 100%%. Decay resumes normally.")
+        end
+    else
+        -- Buff gone — reset so the next application triggers again
+        ICN2._lastWellFedInstanceID = nil
     end
 
     -- ── Drink aura ────────────────────────────────────────────────────────────
@@ -165,7 +157,6 @@ function ICN2:OnUnitAura()
             local elapsed  = now - (drinkState.startTime or now)
             local duration = drinkState.duration or 30
             local natural  = (elapsed >= duration * 0.85)
-
             applyRestore(drinkState, "thirst", natural)
             drinkState.active    = false
             drinkState.startTime = nil
@@ -176,29 +167,30 @@ function ICN2:OnUnitAura()
 end
 
 -- ── Cancel eating/drinking on combat enter ────────────────────────────────────
--- When PLAYER_REGEN_DISABLED fires, WoW already cancels the buff,
--- so UNIT_AURA will fire shortly after and handle the partial credit.
--- This function is a safety net in case UNIT_AURA fires before our flag clears.
 function ICN2:OnCombatBreakFoodDrink()
-    -- Nothing to force here — UNIT_AURA will catch the buff disappearing.
-    -- Kept as a named hook for future expansion (e.g., custom sound).
+    -- UNIT_AURA fires when WoW cancels the buff on combat enter.
+    -- Partial credit is handled there. This hook is kept for future use.
 end
 
--- ── Tick-based progressive restoration (optional smooth feedback) ─────────────
--- Called from Core tick every second while a buff is active.
--- Gives a tiny trickle each second so the bar moves visually while eating.
+-- ── Tick: trickle restoration while buff is active ───────────────────────────
+-- Spreads 50% across the full buff duration so the bar visually fills.
+-- The final applyRestore() on buff-end accounts for the total correctly:
+-- trickle gives a live preview; applyRestore adds the remaining delta.
 function ICN2:FoodDrinkTick()
     if foodState.active and foodState.startTime and foodState.duration then
-        local tickGain = (1 / math.max(1, foodState.duration)) * FULL_RESTORE * 0.5
+        -- trickle = 50% / duration per second, shown live
+        local tickGain = FULL_SESSION_RESTORE / math.max(1, foodState.duration)
         ICN2DB.hunger = math.min(100, ICN2DB.hunger + tickGain)
+        ICN2:UpdateHUD()
     end
 
     if drinkState.active and drinkState.startTime and drinkState.duration then
-        local tickGain = (1 / math.max(1, drinkState.duration)) * FULL_RESTORE * 0.5
+        local tickGain = FULL_SESSION_RESTORE / math.max(1, drinkState.duration)
         ICN2DB.thirst = math.min(100, ICN2DB.thirst + tickGain)
+        ICN2:UpdateHUD()
     end
 end
 
--- ── Status query (used by HUD tooltip) ───────────────────────────────────────
-function ICN2:IsEating()  return foodState.active  end
+-- ── Status query ─────────────────────────────────────────────────────────────
+function ICN2:IsEating()   return foodState.active  end
 function ICN2:IsDrinking() return drinkState.active end
