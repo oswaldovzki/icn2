@@ -170,7 +170,7 @@ ICN2.ARMOR_FATIGUE = {
 -- /sit  → 100% in 60s  (medium)
 -- /kneel→ 100% in 90s  (least restful)
 ICN2.REST_STANCE_RATES = {
-    lay   = 100 / 40,   -- 2.500% per second
-    sit   = 100 / 60,   -- 1.667% per second
-    kneel = 100 / 90,   -- 1.111% per second
+    sleep   = 100 / 40,   -- 2.500% per second
+    sit     = 100 / 60,   -- 1.667% per second
+    kneel   = 100 / 90,   -- 1.111% per second
 }

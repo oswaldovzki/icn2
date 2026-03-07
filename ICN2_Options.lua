@@ -64,7 +64,7 @@ end
 function ICN2:BuildOptions()
     -- v1.1: taller frame to accommodate two new sections
     optFrame = CreateFrame("Frame", "ICN2OptionsFrame", UIParent, "BasicFrameTemplateWithInset")
-    optFrame:SetSize(390, 560)
+    optFrame:SetSize(450, 560) -- v1.1.4: wider to fit longer labels without overflowing the frame
     optFrame:SetPoint("CENTER")
     optFrame:SetFrameStrata("HIGH")
     optFrame:SetMovable(true)

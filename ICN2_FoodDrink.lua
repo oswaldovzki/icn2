@@ -1,196 +1,314 @@
 -- ============================================================
--- ICN2_FoodDrink.lua  (v1.1.2)
--- Hooks WoW's native food/drink buff events via UNIT_AURA.
+-- ICN2_FoodDrink.lua  (v1.2.0-beta)
+-- On-screen status bars: hunger, thirst, fatigue.
+-- Draggable, scalable. Supports smooth bar OR blocky 10-block mode.
 --
--- How it works:
---   1. When a "eating" or "drinking" aura appears on the player,
---      we record the buff start time and expected duration.
---   2. Every tick we trickle restoration proportionally so the
---      bar visually fills while eating/drinking.
---   3. If the buff expires naturally (≥85% of duration elapsed)
---      → +50% restore to hunger or thirst (v1.1.2: capped at 50%).
---   4. If the buff disappears early (cancelled) →
---      partial credit proportional to time: up to 50% max.
---   5. "Well Fed" aura appearing → hunger AND thirst instantly set
---      to 100%, one-shot, no persistent flag. The buff itself is
---      not tracked further; normal decay resumes immediately.
+-- Frame hierarchy:
+--   hudFrame
+--    ├─ ICN2Row_hunger   (rowFrame)
+--    │   ├─ icon
+--    │   └─ ICN2BarFrame_hunger  (barFrame)
+--    │       ├─ smoothBG / smoothBar / smoothLabel
+--    │       └─ block[1..10]:
+--    │           ├─ fillTex   ("BACKGROUND") ← color tint sits here
+--    │           └─ emptyTex  ("ARTWORK")    ← rune renders on top
+--    ├─ ICN2Row_thirst
+--    └─ ICN2Row_fatigue
 -- ============================================================
 
 ICN2 = ICN2 or {}
 
--- ── State ─────────────────────────────────────────────────────────────────────
-local foodState  = { active = false, startTime = nil, duration = nil, buffName = nil }
-local drinkState = { active = false, startTime = nil, duration = nil, buffName = nil }
+local hudFrame
+local bars = {}
 
--- ── Known aura name fragments (lowercase) ─────────────────────────────────────
-local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }
-local DRINK_AURA_PATTERNS  = { "drink", "thirst", "drinking", "hydration" }
-local WELLFED_PATTERNS     = { "well fed" }
-local DRINK_EXTRA_PATTERNS = { "conjured water", "mana tea", "morning glory" }
+local BAR_WIDTH   = 160
+local BAR_HEIGHT  = 24   -- bumped to match atlas natural height (~24px looks clean)
+local BAR_GAP     = 6
+local ICON_SIZE   = 24   -- match bar height
+local NUM_BLOCKS  = 10
+local BLOCK_GAP   = 2
+local BLOCK_SIZE  = 24   -- square blocks to match atlas proportions
 
--- v1.1.2: Full eat/drink session restores exactly 50% of the need bar.
--- Partial cancellation grants a proportional fraction of that 50%.
-local FULL_SESSION_RESTORE = 50.0  -- % restored on full uninterrupted session
+local NEED_KEYS = { "hunger", "thirst", "fatigue" }
 
--- ── Utility: scan unit auras (C_UnitAuras API, TWW / 10.x+) ──────────────────
-local function scanAuras(unit, filter)
-    local results = {}
-    local i = 1
-    while true do
-        local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, filter)
-        if not aura then break end
-        table.insert(results, aura)
-        i = i + 1
+-- ── Icons per need ────────────────────────────────────────────────────────────
+local ICONS = {
+    hunger  = "Interface\\Icons\\INV_Misc_Food_15",
+    thirst  = "Interface\\Icons\\INV_Drink_07",
+    fatigue = "Interface\\Icons\\Spell_Nature_Sleep",
+}
+
+-- ── Atlas config — easy to swap textures here ─────────────────────────────────
+-- emptyAtlas : shown for all 10 slots (the "socket" background)
+-- fillAtlas  : shown on top of the fill color for active slots
+-- fillColor  : default tint {r, g, b} applied to fillTex
+--
+-- To change textures just edit the atlas names below.
+-- Use C_Texture.GetAtlasInfo("name") in-game to verify an atlas exists.
+local BLOCK_ATLAS = {
+    hunger = {
+        emptyAtlas = "Relic-Blood-TraitBG",
+        fillAtlas  = "Relic-Blood-TraitFill",
+        fillColor  = { 0.2, 0.9, 0.2 },   -- green
+    },
+    thirst = {
+        emptyAtlas = "Relic-Water-TraitBG",
+        fillAtlas  = "Relic-Water-TraitFill",
+        fillColor  = { 0.2, 0.5, 1.0 },   -- blue
+    },
+    fatigue = {
+        emptyAtlas = "Relic-Wind-TraitBG",
+        fillAtlas  = "Relic-Wind-TraitFill",
+        fillColor  = { 1.0, 0.85, 0.1 },  -- yellow
+    },
+}
+
+-- ── Color helper (threshold overrides) ───────────────────────────────────────
+-- Returns the tint to apply to fillTex at a given value.
+-- At low/critical thresholds all needs share the same warning colors.
+local function getNeedColor(key, val)
+    if val <= ICN2.THRESHOLDS.critical then
+        return 0.9, 0.1, 0.1           -- red
+    elseif val <= ICN2.THRESHOLDS.low then
+        return 0.9, 0.6, 0.1           -- orange
+    else
+        local fc = BLOCK_ATLAS[key].fillColor
+        return fc[1], fc[2], fc[3]     -- default per-need color
     end
-    return results
 end
 
--- ── Check if a name matches any pattern ──────────────────────────────────────
-local function matchesAny(name, patterns)
-    if not name then return false end
-    local lower = name:lower()
-    for _, p in ipairs(patterns) do
-        if lower:find(p, 1, true) then return true end
+-- ── Build the entire HUD ──────────────────────────────────────────────────────
+function ICN2:BuildHUD()
+    local s = ICN2DB.settings
+
+    -- Recalculate hudFrame height based on current BAR_HEIGHT
+    local frameH = (BLOCK_SIZE + BAR_GAP) * #NEED_KEYS + 14
+    local frameW = ICON_SIZE + (BLOCK_SIZE + BLOCK_GAP) * NUM_BLOCKS + 14
+
+    -- ── Root container ────────────────────────────────────────────────────────
+    hudFrame = CreateFrame("Frame", "ICN2HUDFrame", UIParent)
+    hudFrame:SetSize(frameW, frameH)
+    hudFrame:SetFrameStrata("MEDIUM")
+    hudFrame:SetClampedToScreen(true)
+    hudFrame:SetPoint("CENTER", UIParent, "CENTER", s.hudX or 200, s.hudY or -250)
+
+    -- Background
+    local bg = hudFrame:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetTexture("Interface\\Tooltips\\UI-Tooltip-Background")
+    bg:SetVertexColor(0, 0, 0, 0.6)
+
+    -- Border
+    local border = CreateFrame("Frame", nil, hudFrame, "BackdropTemplate")
+    border:SetAllPoints()
+    border:SetBackdrop({
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 8,
+        insets   = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    border:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
+
+    -- Drag
+    hudFrame:EnableMouse(true)
+    hudFrame:SetMovable(true)
+    hudFrame:RegisterForDrag("LeftButton")
+    hudFrame:SetScript("OnDragStart", function(self)
+        if not ICN2DB.settings.hudLocked then self:StartMoving() end
+    end)
+    hudFrame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local _, _, _, x, y = self:GetPoint()
+        ICN2DB.settings.hudX = x
+        ICN2DB.settings.hudY = y
+    end)
+
+    -- Tooltip
+    hudFrame:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("|cFFFF6600ICN2 - Character Needs|r", 1, 1, 1)
+        GameTooltip:AddLine(string.format("Hunger:  %.1f%%", ICN2DB.hunger),  0.2, 0.8, 0.2)
+        GameTooltip:AddLine(string.format("Thirst:  %.1f%%", ICN2DB.thirst),  0.2, 0.5, 1.0)
+        GameTooltip:AddLine(string.format("Fatigue: %.1f%%", ICN2DB.fatigue), 1.0, 0.85, 0.1)
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("|cFFAAAAAA/icn2 eat|drink|rest|reset|status|r", 0.7, 0.7, 0.7)
+        GameTooltip:Show()
+    end)
+    hudFrame:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    -- ── Build one row per need ────────────────────────────────────────────────
+    for i, key in ipairs(NEED_KEYS) do
+        local atlas = BLOCK_ATLAS[key]
+        local fc    = atlas.fillColor
+
+        -- Row container
+        local rowFrame = CreateFrame("Frame", "ICN2Row_" .. key, hudFrame)
+        rowFrame:SetSize(frameW - 8, BLOCK_SIZE)
+        rowFrame:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", 4, -((i - 1) * (BLOCK_SIZE + BAR_GAP)) - 7)
+
+        -- Icon (child of rowFrame, left edge)
+        local icon = rowFrame:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(ICON_SIZE, ICON_SIZE)
+        icon:SetPoint("LEFT", rowFrame, "LEFT", 0, 0)
+        icon:SetTexture(ICONS[key])
+        icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+        -- barFrame: everything bar-related lives here
+        local barFrame = CreateFrame("Frame", "ICN2BarFrame_" .. key, rowFrame)
+        barFrame:SetSize((BLOCK_SIZE + BLOCK_GAP) * NUM_BLOCKS, BLOCK_SIZE)
+        barFrame:SetPoint("LEFT", rowFrame, "LEFT", ICON_SIZE + 4, 0)
+
+        -- ── Smooth bar (shown when blockyBars = false) ────────────────────────
+        local smoothBG = barFrame:CreateTexture(nil, "BACKGROUND")
+        smoothBG:SetAllPoints()
+        smoothBG:SetColorTexture(0.12, 0.12, 0.12, 0.9)
+
+        local smoothBar = CreateFrame("StatusBar", "ICN2SmoothBar_" .. key, barFrame)
+        smoothBar:SetAllPoints()
+        smoothBar:SetMinMaxValues(0, 100)
+        smoothBar:SetValue(100)
+        smoothBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+        smoothBar:SetStatusBarColor(fc[1], fc[2], fc[3])
+
+        local smoothLabel = smoothBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        smoothLabel:SetPoint("RIGHT", smoothBar, "RIGHT", -3, 0)
+        smoothLabel:SetText("100%")
+
+        -- ── Blocky bar (shown when blockyBars = true) ─────────────────────────
+        -- Layer order per block:
+        --   1. fillTex  ("BACKGROUND") — solid color tint
+        --   2. emptyTex ("ARTWORK")    — rune texture renders ON TOP of the tint
+        --
+        -- When a block is "empty": fillTex hidden, emptyTex shown   → just the rune
+        -- When a block is "filled": fillTex shown, emptyTex shown   → tint shines through rune
+        local blockFrames = {}
+        for b = 1, NUM_BLOCKS do
+            local bx = (b - 1) * (BLOCK_SIZE + BLOCK_GAP)
+
+            -- 1. Color tint layer (BACKGROUND — below the rune)
+            local fillTex = barFrame:CreateTexture(nil, "BACKGROUND")
+            fillTex:SetSize(BLOCK_SIZE, BLOCK_SIZE)
+            fillTex:SetPoint("TOPLEFT", barFrame, "TOPLEFT", bx, 0)
+            fillTex:SetColorTexture(fc[1], fc[2], fc[3], 0.85)
+            fillTex:Hide()
+
+            -- 2. Rune texture (ARTWORK — on top of the tint)
+            local emptyTex = barFrame:CreateTexture(nil, "ARTWORK")
+            emptyTex:SetSize(BLOCK_SIZE, BLOCK_SIZE)
+            emptyTex:SetPoint("TOPLEFT", barFrame, "TOPLEFT", bx, 0)
+            emptyTex:SetAtlas(atlas.emptyAtlas)
+            emptyTex:Hide()
+
+            blockFrames[b] = { fill = fillTex, empty = emptyTex }
+        end
+
+        -- Block count label "7/10"
+        local blockLabel = barFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        blockLabel:SetPoint("RIGHT", barFrame, "RIGHT", -2, 0)
+        blockLabel:SetText("10/10")
+        blockLabel:Hide()
+
+        bars[key] = {
+            rowFrame    = rowFrame,
+            barFrame    = barFrame,
+            smoothBar   = smoothBar,
+            smoothBG    = smoothBG,
+            smoothLabel = smoothLabel,
+            blocks      = blockFrames,
+            blockLabel  = blockLabel,
+        }
     end
-    return false
+
+    hudFrame:SetAlpha(s.hudAlpha)
+    hudFrame:SetScale(s.hudScale)
+    ICN2:ApplyBarMode()
+    if not s.hudEnabled then hudFrame:Hide() end
 end
 
--- ── Find a specific aura type on the player ──────────────────────────────────
-local function findAura(patterns, extraPatterns)
-    local auras = scanAuras("player", "HELPFUL")
-    for _, aura in ipairs(auras) do
-        if matchesAny(aura.name, patterns) then return aura end
-        if extraPatterns and matchesAny(aura.name, extraPatterns) then return aura end
+-- ── Switch between smooth and blocky display modes ────────────────────────────
+function ICN2:ApplyBarMode()
+    if not hudFrame then return end
+    local blocky = ICN2DB.settings.blockyBars
+
+    for _, key in ipairs(NEED_KEYS) do
+        local data = bars[key]
+        if data then
+            if blocky then
+                data.smoothBar:Hide()
+                data.smoothBG:Hide()
+                data.smoothLabel:Hide()
+                -- Show all rune slots; fill visibility is handled by UpdateHUD
+                for _, bf in ipairs(data.blocks) do bf.empty:Show() end
+                data.blockLabel:Show()
+            else
+                data.smoothBar:Show()
+                data.smoothBG:Show()
+                data.smoothLabel:Show()
+                for _, bf in ipairs(data.blocks) do
+                    bf.fill:Hide()
+                    bf.empty:Hide()
+                end
+                data.blockLabel:Hide()
+            end
+        end
     end
-    return nil
 end
 
--- ── Apply restoration on buff end ────────────────────────────────────────────
--- full = true  → player finished eating/drinking naturally → +50%
--- full = false → player was interrupted               → +(50% × fraction)
-local function applyRestore(state, need, full)
-    if not state.startTime then return end
+-- ── Update all bars ───────────────────────────────────────────────────────────
+function ICN2:UpdateHUD()
+    if not hudFrame then return end
 
-    local elapsed  = GetTime() - state.startTime
-    local duration = state.duration or 30
-    local fraction = math.min(1.0, elapsed / math.max(1, duration))
-    local amount   = full and FULL_SESSION_RESTORE or (FULL_SESSION_RESTORE * fraction)
-
-    if need == "hunger" then
-        ICN2DB.hunger = math.min(100, ICN2DB.hunger + amount)
-        ICN2:TriggerEmote("satisfied", "hunger")
-    elseif need == "thirst" then
-        ICN2DB.thirst = math.min(100, ICN2DB.thirst + amount)
-        ICN2:TriggerEmote("satisfied", "thirst")
+    if not ICN2DB.settings.hudEnabled then
+        hudFrame:Hide()
+        return
     end
+    hudFrame:Show()
 
+    local values = {
+        hunger  = ICN2DB.hunger,
+        thirst  = ICN2DB.thirst,
+        fatigue = ICN2DB.fatigue,
+    }
+    local blocky = ICN2DB.settings.blockyBars
+
+    for _, key in ipairs(NEED_KEYS) do
+        local data = bars[key]
+        if data then
+            local val     = values[key] or 0
+            local r, g, b = getNeedColor(key, val)
+
+            if blocky then
+                local filled = (val >= 100) and 10 or math.floor(val / 10)
+                for b = 1, NUM_BLOCKS do
+                    local bf = data.blocks[b]
+                    if b <= filled then
+                        -- Update the tint color (threshold colors override default)
+                        bf.fill:SetColorTexture(r, g, b, 0.85)
+                        bf.fill:Show()
+                    else
+                        bf.fill:Hide()
+                    end
+                    -- emptyTex (the rune) is always visible in blocky mode;
+                    -- ApplyBarMode handles its show/hide on mode switch
+                end
+                data.blockLabel:SetText(filled .. "/" .. NUM_BLOCKS)
+                data.blockLabel:SetTextColor(r, g, b)
+            else
+                data.smoothBar:SetValue(val)
+                data.smoothBar:SetStatusBarColor(r, g, b)
+                data.smoothLabel:SetText(string.format("%.0f%%", val))
+            end
+        end
+    end
+end
+
+-- ── Toggle blocky mode ────────────────────────────────────────────────────────
+function ICN2:SetBlockyBars(enabled)
+    ICN2DB.settings.blockyBars = enabled
+    ICN2:ApplyBarMode()
     ICN2:UpdateHUD()
-
-    if full then
-        print(string.format("|cFFFF6600ICN2|r %s restored! (+50%%)",
-            need == "hunger" and "|cFF00FF00Hunger|r" or "|cFF4499FFThirst|r"))
-    elseif amount >= 1 then
-        print(string.format("|cFFFF6600ICN2|r %s partially restored (+%.0f%% — interrupted).",
-            need == "hunger" and "|cFF00FF00Hunger|r" or "|cFF4499FFThirst|r",
-            amount))
-    end
 end
 
--- ── Main aura scan — called on every UNIT_AURA for player ─────────────────────
-function ICN2:OnUnitAura()
-    local now = GetTime()
-
-    -- ── Food aura ─────────────────────────────────────────────────────────────
-    local foodAura = findAura(FOOD_AURA_PATTERNS)
-    if foodAura then
-        if not foodState.active then
-            foodState.active    = true
-            foodState.startTime = now
-            foodState.duration  = foodAura.duration or 30
-            foodState.buffName  = foodAura.name
-        end
-    else
-        if foodState.active then
-            local elapsed  = now - (foodState.startTime or now)
-            local duration = foodState.duration or 30
-            local natural  = (elapsed >= duration * 0.85)
-            applyRestore(foodState, "hunger", natural)
-            foodState.active    = false
-            foodState.startTime = nil
-            foodState.duration  = nil
-            foodState.buffName  = nil
-        end
-    end
-
-    -- ── Well Fed aura (v1.1.2: one-shot, no persistent tracking) ─────────────
-    -- When Well Fed appears, immediately set both hunger and thirst to 100%.
-    -- We do NOT set a persistent flag — the buff can stay on the player for
-    -- minutes and we must not keep firing. Instead we record the aura's
-    -- instanceID so we only trigger once per unique Well Fed application.
-    local wellFedAura = findAura(WELLFED_PATTERNS)
-    if wellFedAura then
-        local id = wellFedAura.auraInstanceID or 0
-        if id ~= ICN2._lastWellFedInstanceID then
-            ICN2._lastWellFedInstanceID = id
-            ICN2DB.hunger = 100.0
-            ICN2DB.thirst = 100.0
-            ICN2:UpdateHUD()
-            ICN2:TriggerEmote("satisfied", "hunger")
-            print("|cFFFF6600ICN2|r |cFF00FF00Well Fed!|r Hunger and Thirst set to 100%%. Decay resumes normally.")
-        end
-    else
-        -- Buff gone — reset so the next application triggers again
-        ICN2._lastWellFedInstanceID = nil
-    end
-
-    -- ── Drink aura ────────────────────────────────────────────────────────────
-    local drinkAura = findAura(DRINK_AURA_PATTERNS, DRINK_EXTRA_PATTERNS)
-    if drinkAura then
-        if not drinkState.active then
-            drinkState.active    = true
-            drinkState.startTime = now
-            drinkState.duration  = drinkAura.duration or 30
-            drinkState.buffName  = drinkAura.name
-        end
-    else
-        if drinkState.active then
-            local elapsed  = now - (drinkState.startTime or now)
-            local duration = drinkState.duration or 30
-            local natural  = (elapsed >= duration * 0.85)
-            applyRestore(drinkState, "thirst", natural)
-            drinkState.active    = false
-            drinkState.startTime = nil
-            drinkState.duration  = nil
-            drinkState.buffName  = nil
-        end
-    end
+-- ── Lock/unlock dragging ──────────────────────────────────────────────────────
+function ICN2:LockHUD(locked)
+    if hudFrame then hudFrame:EnableMouse(not locked) end
 end
-
--- ── Cancel eating/drinking on combat enter ────────────────────────────────────
-function ICN2:OnCombatBreakFoodDrink()
-    -- UNIT_AURA fires when WoW cancels the buff on combat enter.
-    -- Partial credit is handled there. This hook is kept for future use.
-end
-
--- ── Tick: trickle restoration while buff is active ───────────────────────────
--- Spreads 50% across the full buff duration so the bar visually fills.
--- The final applyRestore() on buff-end accounts for the total correctly:
--- trickle gives a live preview; applyRestore adds the remaining delta.
-function ICN2:FoodDrinkTick()
-    if foodState.active and foodState.startTime and foodState.duration then
-        -- trickle = 50% / duration per second, shown live
-        local tickGain = FULL_SESSION_RESTORE / math.max(1, foodState.duration)
-        ICN2DB.hunger = math.min(100, ICN2DB.hunger + tickGain)
-        ICN2:UpdateHUD()
-    end
-
-    if drinkState.active and drinkState.startTime and drinkState.duration then
-        local tickGain = FULL_SESSION_RESTORE / math.max(1, drinkState.duration)
-        ICN2DB.thirst = math.min(100, ICN2DB.thirst + tickGain)
-        ICN2:UpdateHUD()
-    end
-end
-
--- ── Status query ─────────────────────────────────────────────────────────────
-function ICN2:IsEating()   return foodState.active  end
-function ICN2:IsDrinking() return drinkState.active end

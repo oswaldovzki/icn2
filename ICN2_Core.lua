@@ -1,5 +1,5 @@
 -- ============================================================
--- ICN2_Core.lua
+-- ICN2_Core.lua  (v1.2.0-beta)
 -- Core engine: initialization, decay tick, persistence,
 -- situational detection, race/class modifiers.
 -- ============================================================
@@ -7,28 +7,28 @@
 ICN2 = ICN2 or {}
 
 -- ── Internal state ────────────────────────────────────────────────────────────
-local frame = CreateFrame("Frame", "ICN2Frame", UIParent)
-local tickInterval = 1.0   -- seconds between decay ticks
+local frame        = CreateFrame("Frame", "ICN2Frame", UIParent)
+local tickInterval = 1.0
 local elapsed      = 0
 
--- Track event-driven state
 local inCombat   = false
 local isSwimming = false
 
--- v1.1.2: Rest stance state
--- stance = "lay" | "sit" | "kneel" | nil
-local restStance          = nil
-local restStanceStartTime = nil
+-- Rest stance: set by OnPoseUpdate, cleared on combat/mount
+local restStance = nil   -- "sit" | "sleep" | "kneel" | nil
+
+-- Last computed net rates (% per second). Positive = gaining, negative = losing.
+-- Written by tick(), read by UpdateHUD() for the indicator and by /icn2 details.
+ICN2._lastRates   = { hunger = 0, thirst = 0, fatigue = 0 }
+
+-- Last active modifier labels, written by tick() only when /details was requested.
+ICN2._lastDetails = nil
 
 -- ── Deep copy utility ─────────────────────────────────────────────────────────
 local function deepCopy(orig)
     local copy = {}
     for k, v in pairs(orig) do
-        if type(v) == "table" then
-            copy[k] = deepCopy(v)
-        else
-            copy[k] = v
-        end
+        copy[k] = (type(v) == "table") and deepCopy(v) or v
     end
     return copy
 end
@@ -40,8 +40,6 @@ local function initDB()
         ICN2DB.lastLogout = time()
         return
     end
-
-    -- Merge any missing keys from defaults (handles addon upgrades)
     for k, v in pairs(ICN2.DEFAULTS) do
         if ICN2DB[k] == nil then
             ICN2DB[k] = (type(v) == "table") and deepCopy(v) or v
@@ -54,155 +52,167 @@ local function initDB()
     end
 end
 
--- ── Calculate offline decay ───────────────────────────────────────────────────
--- When the player logs back in, time has passed. We simulate it using
--- an average "resting" multiplier (generous — they were offline, after all).
--- v1.1: skipped entirely if freezeOfflineNeeds is enabled.
+-- ── Offline decay ─────────────────────────────────────────────────────────────
 local function applyOfflineDecay()
     if not ICN2DB.lastLogout then return end
-    if ICN2DB.settings.freezeOfflineNeeds then return end  -- v1.1: frozen offline
+    if ICN2DB.settings.freezeOfflineNeeds then return end
 
-    local now       = time()
-    local delta     = now - ICN2DB.lastLogout
+    local now   = time()
+    local delta = math.min(now - ICN2DB.lastLogout, 8 * 3600)
     if delta <= 0 then return end
 
-    -- Cap offline time at 8 real-world hours to avoid draining to 0 after
-    -- a long absence — realism, not punishment.
-    delta = math.min(delta, 8 * 3600)
-
-    local s = ICN2DB.settings
+    local s      = ICN2DB.settings
     local preset = ICN2.PRESETS[s.preset] or 1.0
     local rest   = ICN2.SITUATION_MODIFIERS.resting
 
-    ICN2DB.hunger  = math.max(0, ICN2DB.hunger  - (s.decayRates.hunger  * preset * rest.hunger  * delta))
-    ICN2DB.thirst  = math.max(0, ICN2DB.thirst  - (s.decayRates.thirst  * preset * rest.thirst  * delta))
-    ICN2DB.fatigue = math.max(0, ICN2DB.fatigue - (s.decayRates.fatigue * preset * rest.fatigue * delta))
+    ICN2DB.hunger  = math.max(0, ICN2DB.hunger  - s.decayRates.hunger  * preset * rest.hunger  * delta)
+    ICN2DB.thirst  = math.max(0, ICN2DB.thirst  - s.decayRates.thirst  * preset * rest.thirst  * delta)
+    ICN2DB.fatigue = math.max(0, ICN2DB.fatigue - s.decayRates.fatigue * preset * rest.fatigue * delta)
 
     ICN2:UpdateHUD()
 end
 
--- ── Build combined decay modifier for this tick ───────────────────────────────
-local function getSituationMultipliers()
+-- ── Situation multipliers ─────────────────────────────────────────────────────
+-- Returns mH, mT, mF plus an optional labels table if collectLabels=true.
+local function getSituationMultipliers(collectLabels)
     local mH, mT, mF = 1.0, 1.0, 1.0
+    local labels = collectLabels and {} or nil
 
-    -- Resting (inn / capital city rested state)
     if IsResting() then
         local r = ICN2.SITUATION_MODIFIERS.resting
         mH, mT, mF = mH * r.hunger, mT * r.thirst, mF * r.fatigue
-        return mH, mT, mF   -- resting overrides everything else
+        if labels then table.insert(labels, string.format("resting (H×%.2f T×%.2f F×%.2f)", r.hunger, r.thirst, r.fatigue)) end
+        -- resting short-circuits everything else
+        goto applyCharMods
     end
 
-    -- Mounted
     if IsMounted() then
         local m = ICN2.SITUATION_MODIFIERS.mounted
         mH, mT, mF = mH * m.hunger, mT * m.thirst, mF * m.fatigue
+        if labels then table.insert(labels, string.format("mounted (H×%.2f T×%.2f F×%.2f)", m.hunger, m.thirst, m.fatigue)) end
     end
 
-    -- Flying (subset of mounted but distinct modifier for fatigue)
     if IsFlying() then
         local f = ICN2.SITUATION_MODIFIERS.flying
         mH, mT, mF = mH * f.hunger, mT * f.thirst, mF * f.fatigue
+        if labels then table.insert(labels, string.format("flying (H×%.2f T×%.2f F×%.2f)", f.hunger, f.thirst, f.fatigue)) end
     end
 
-    -- Swimming (IsFalling() doubles as underwater check via IsSubmerged if
-    -- available, but we track UNIT_ENTERING_VEHICLE / move flags via combat log.
-    -- We use a simple heuristic: IsSubmerged exists in some builds.)
     if isSwimming then
         local sw = ICN2.SITUATION_MODIFIERS.swimming
         mH, mT, mF = mH * sw.hunger, mT * sw.thirst, mF * sw.fatigue
+        if labels then table.insert(labels, string.format("swimming (H×%.2f T×%.2f F×%.2f)", sw.hunger, sw.thirst, sw.fatigue)) end
     end
 
-    -- Combat
     if inCombat then
         local c = ICN2.SITUATION_MODIFIERS.combat
         mH, mT, mF = mH * c.hunger, mT * c.thirst, mF * c.fatigue
+        if labels then table.insert(labels, string.format("combat (H×%.2f T×%.2f F×%.2f)", c.hunger, c.thirst, c.fatigue)) end
     end
 
-    -- Indoors (no combat, no mount)
     if IsIndoors() and not inCombat and not IsMounted() then
-        local i = ICN2.SITUATION_MODIFIERS.indoors
-        mH, mT, mF = mH * i.hunger, mT * i.thirst, mF * i.fatigue
+        local ind = ICN2.SITUATION_MODIFIERS.indoors
+        mH, mT, mF = mH * ind.hunger, mT * ind.thirst, mF * ind.fatigue
+        if labels then table.insert(labels, string.format("indoors (H×%.2f T×%.2f F×%.2f)", ind.hunger, ind.thirst, ind.fatigue)) end
     end
 
-    -- Race modifier
+    ::applyCharMods::
+
     local race = select(2, UnitRace("player"))
-    local rm = ICN2.RACE_MODIFIERS[race]
+    local rm   = ICN2.RACE_MODIFIERS[race]
     if rm then
         mH, mT, mF = mH * rm.hunger, mT * rm.thirst, mF * rm.fatigue
+        if labels then table.insert(labels, string.format("race:%s (H×%.2f T×%.2f F×%.2f)", race, rm.hunger, rm.thirst, rm.fatigue)) end
     end
 
-    -- Class modifier
     local _, class = UnitClass("player")
     local cm = ICN2.CLASS_MODIFIERS[class]
     if cm then
         mH, mT, mF = mH * cm.hunger, mT * cm.thirst, mF * cm.fatigue
+        if labels then table.insert(labels, string.format("class:%s (H×%.2f T×%.2f F×%.2f)", class, cm.hunger, cm.thirst, cm.fatigue)) end
     end
 
-    return mH, mT, mF
+    return mH, mT, mF, labels
 end
 
 -- ── Armor fatigue modifier ────────────────────────────────────────────────────
-local function getArmorFatigueModifier()
-    -- Check the chest slot (slot 5) for armor type
-    local _, _, _, _, _, _, subType = GetItemInfo(GetInventoryItemLink("player", 5) or "")
-    if subType then
-        if subType:find("Plate")  then return ICN2.ARMOR_FATIGUE.PLATE  end
-        if subType:find("Mail")   then return ICN2.ARMOR_FATIGUE.MAIL   end
-        if subType:find("Leather")then return ICN2.ARMOR_FATIGUE.LEATHER end
+local function getArmorFatigueModifier(collectLabels)
+    local itemLink = GetInventoryItemLink("player", 5)
+    if not itemLink then
+        return ICN2.ARMOR_FATIGUE.CLOTH, collectLabels and "armor:none→CLOTH" or nil
     end
-    return ICN2.ARMOR_FATIGUE.CLOTH
+
+    local itemInfo = C_Item.GetItemInfo(itemLink)
+    local subType  = itemInfo and itemInfo.itemSubType or nil
+
+    if subType then
+        if subType:find("Plate")   then return ICN2.ARMOR_FATIGUE.PLATE,   collectLabels and string.format("armor:PLATE (F×%.2f)",   ICN2.ARMOR_FATIGUE.PLATE)   or nil end
+        if subType:find("Mail")    then return ICN2.ARMOR_FATIGUE.MAIL,    collectLabels and string.format("armor:MAIL (F×%.2f)",    ICN2.ARMOR_FATIGUE.MAIL)    or nil end
+        if subType:find("Leather") then return ICN2.ARMOR_FATIGUE.LEATHER, collectLabels and string.format("armor:LEATHER (F×%.2f)", ICN2.ARMOR_FATIGUE.LEATHER) or nil end
+    end
+    return ICN2.ARMOR_FATIGUE.CLOTH, collectLabels and string.format("armor:CLOTH (F×%.2f)", ICN2.ARMOR_FATIGUE.CLOTH) or nil
 end
 
 -- ── Main decay tick ───────────────────────────────────────────────────────────
 local function tick()
-    local s = ICN2DB.settings
+    local s      = ICN2DB.settings
     local preset = ICN2.PRESETS[s.preset] or 1.0
     local mH, mT, mF = getSituationMultipliers()
     local armorMod   = getArmorFatigueModifier()
+
+    local dH = s.decayRates.hunger  * preset * mH
+    local dT = s.decayRates.thirst  * preset * mT
+    local dF = s.decayRates.fatigue * preset * mF * armorMod
 
     local oldHunger  = ICN2DB.hunger
     local oldThirst  = ICN2DB.thirst
     local oldFatigue = ICN2DB.fatigue
 
-    ICN2DB.hunger  = math.max(0, ICN2DB.hunger  - (s.decayRates.hunger  * preset * mH))
-    ICN2DB.thirst  = math.max(0, ICN2DB.thirst  - (s.decayRates.thirst  * preset * mT))
-    ICN2DB.fatigue = math.max(0, ICN2DB.fatigue - (s.decayRates.fatigue * preset * mF * armorMod))
+    ICN2DB.hunger  = math.max(0, ICN2DB.hunger  - dH)
+    ICN2DB.thirst  = math.max(0, ICN2DB.thirst  - dT)
+    ICN2DB.fatigue = math.max(0, ICN2DB.fatigue - dF)
+
+    -- Net rate: decay is negative, stance recovery adds positive to fatigue
+    local stanceGain = (restStance and ICN2.REST_STANCE_RATES[restStance] or 0)
+    ICN2._lastRates = {
+        hunger  = -dH,
+        thirst  = -dT,
+        fatigue = stanceGain - dF,
+    }
 
     ICN2:UpdateHUD()
     ICN2:CheckEmotes(oldHunger, oldThirst, oldFatigue)
 end
 
--- ── Recovery functions (called from outside / slash commands) ─────────────────
+-- ── Recovery functions ────────────────────────────────────────────────────────
 function ICN2:Eat(amount)
-    amount = amount or 30
-    ICN2DB.hunger = math.min(100, ICN2DB.hunger + amount)
+    ICN2DB.hunger = math.min(100, ICN2DB.hunger + (amount or 30))
     self:UpdateHUD()
     self:TriggerEmote("satisfied", "hunger")
 end
 
 function ICN2:Drink(amount)
-    amount = amount or 30
-    ICN2DB.thirst = math.min(100, ICN2DB.thirst + amount)
+    ICN2DB.thirst = math.min(100, ICN2DB.thirst + (amount or 30))
     self:UpdateHUD()
     self:TriggerEmote("satisfied", "thirst")
 end
 
 function ICN2:Rest(amount)
-    amount = amount or 20
-    ICN2DB.fatigue = math.min(100, ICN2DB.fatigue + amount)
+    ICN2DB.fatigue = math.min(100, ICN2DB.fatigue + (amount or 20))
     self:UpdateHUD()
     self:TriggerEmote("satisfied", "fatigue")
 end
 
--- ── Event handler ─────────────────────────────────────────────────────────────
+-- ── Event registration ────────────────────────────────────────────────────────
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_LOGOUT")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-frame:RegisterEvent("UNIT_AURA")           -- v1.1: food/drink buff tracking
-frame:RegisterEvent("PLAYER_UPDATE_RESTING") -- v1.1.2: catches sit/stand state changes
+frame:RegisterEvent("UNIT_AURA")
+frame:RegisterEvent("PLAYER_UPDATE_RESTING")
+frame:RegisterEvent("UNIT_POSE_UPDATE")
 
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" then
@@ -222,154 +232,156 @@ frame:SetScript("OnEvent", function(self, event, ...)
         ICN2DB.lastLogout = time()
 
     elseif event == "PLAYER_REGEN_DISABLED" then
-        inCombat = true
-        -- Combat cancels any active rest stance
-        restStance          = nil
-        restStanceStartTime = nil
+        inCombat   = true
+        restStance = nil
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         inCombat = false
-        ICN2:OnCombatBreakFoodDrink()  -- v1.1: cancel eating/drinking on combat
+        ICN2:OnCombatBreakFoodDrink()
 
     elseif event == "PLAYER_UPDATE_RESTING" then
-        -- v1.1.2: player stood up or changed stance — clear rest stance
-        -- The OnUpdate loop re-detects it next tick if still seated/lying
-        ICN2:DetectRestStance()
+        -- Fires on inn enter/exit; also acts as a standing-up safety net
+        if not restStance then return end
+        -- If player just left a resting area while seated that's fine; keep stance
+        -- But if they stood up the UNIT_POSE_UPDATE will clear it — nothing to do here
 
     elseif event == "UNIT_AURA" then
-        -- v1.1: delegate to FoodDrink module
         local unit = ...
-        if unit == "player" then
-            ICN2:OnUnitAura()
-        end
+        if unit == "player" then ICN2:OnUnitAura() end
 
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-        -- Detect racial / class abilities that recover needs
         local unit, _, spellID = ...
-        if unit == "player" then
-            ICN2:HandleAbilityRecovery(spellID)
-        end
+        if unit == "player" then ICN2:HandleAbilityRecovery(spellID) end
+
+    elseif event == "UNIT_POSE_UPDATE" then
+        local unit, pose = ...
+        if unit == "player" then ICN2:OnPoseUpdate(pose) end
     end
 end)
 
--- ── Detect swimming via movement (OnUpdate heuristic) ─────────────────────────
--- IsSubmerged() is not always available; we use a safe fallback.
+-- ── OnUpdate ──────────────────────────────────────────────────────────────────
 frame:SetScript("OnUpdate", function(self, dt)
     elapsed = elapsed + dt
     if elapsed >= tickInterval then
         elapsed = 0
-
-        -- Swimming detection
-        if IsSubmerged and IsSubmerged() then
-            isSwimming = true
-        else
-            isSwimming = false
-        end
-
-        -- v1.1.2: detect rest stance each tick (handles emote-triggered stances)
-        ICN2:DetectRestStance()
-
-        ICN2:FoodDrinkTick()  -- v1.1: progressive bar fill while eating/drinking
-        ICN2:RestStanceTick() -- v1.1.2: fatigue recovery while in rest stance
+        isSwimming = (IsSubmerged and IsSubmerged()) and true or false
+        ICN2:FoodDrinkTick()
+        ICN2:RestStanceTick()
         tick()
     end
 end)
 
--- ── v1.1.2: Rest stance detection ─────────────────────────────────────────────
--- WoW exposes the player's stance via GetUnitAnimationInfo / UnitStance.
--- The most reliable retail method is checking the player's current stand state
--- via the GetStandingState() / UnitIsAFK combo. We use the unit pose API:
---   0 = standing, 1 = sitting, 2 = sleeping (lay), 3 = kneeling
--- GetPowerRegen and similar don't expose this; we rely on the numeric stances.
-function ICN2:DetectRestStance()
-    -- Standing up or in combat always clears the stance
+-- ── Pose → stance mapping ─────────────────────────────────────────────────────
+-- UNIT_POSE_UPDATE passes pose as an uppercase string: "STAND", "SIT", "SLEEP", "KNEEL"
+function ICN2:OnPoseUpdate(pose)
     if inCombat or IsMounted() then
-        restStance          = nil
-        restStanceStartTime = nil
+        restStance = nil
         return
     end
-
-    -- GetStandingState returns:
-    -- STANDING (0/nil), SITTING (1), SLEEPING (2), KNEEL (3)
-    -- Available since Classic; stable in TWW.
-    local standState = GetStandingState and GetStandingState() or 0
-
-    local newStance = nil
-    if standState == 3 then
-        newStance = "kneel"
-    elseif standState == 2 then
-        newStance = "lay"
-    elseif standState == 1 then
-        newStance = "sit"
-    end
-
-    if newStance ~= restStance then
-        -- Stance changed — reset timer
-        restStance          = newStance
-        restStanceStartTime = newStance and GetTime() or nil
-    end
+    local poseMap = { SIT = "sit", SLEEP = "sleep", KNEEL = "kneel" }
+    restStance = poseMap[pose]   -- nil when STAND
 end
 
--- ── v1.1.2: Fatigue recovery tick while in a rest stance ─────────────────────
--- Rates are defined in ICN2_Data.lua:
---   /lay  → 100% in 40s  (2.500%/s)
---   /sit  → 100% in 60s  (1.667%/s)
---   /kneel→ 100% in 90s  (1.111%/s)
--- Recovery is paused if the player is eating, drinking, in combat, or mounted.
+-- ── Fatigue recovery tick ─────────────────────────────────────────────────────
 function ICN2:RestStanceTick()
-    if not restStance or not restStanceStartTime then return end
+    if not restStance then return end
     if inCombat or IsMounted() then return end
-    -- Don't stack with eating/drinking active (rare edge case)
     if ICN2:IsEating() or ICN2:IsDrinking() then return end
 
     local rate = ICN2.REST_STANCE_RATES[restStance]
     if not rate then return end
 
     ICN2DB.fatigue = math.min(100, ICN2DB.fatigue + rate)
-    -- HUD update is handled by the main tick() call immediately after
 end
 
--- ── Racial / class ability recovery table ─────────────────────────────────────
+-- ── Racial / class ability recovery ──────────────────────────────────────────
 local ABILITY_RECOVERY = {
-    -- Undead: Cannibalize (20577) → hunger boost
-    [20577] = function() ICN2:Eat(40) end,
-    -- Demon Hunter: Soul Rending / Consume Soul passives (approximate)
-    -- We hook a well-known DH soul fragment ability as a proxy
-    [204065] = function() ICN2:Eat(10) ICN2:Rest(10) end,
-    -- Night Elf: Shadowmeld (58984) → resting
-    [58984]  = function() ICN2:Rest(5) end,
+    [20577]  = function() ICN2:Eat(40) end,           -- Cannibalize
+    [204065] = function() ICN2:Eat(10) ICN2:Rest(10) end, -- DH soul fragment
+    [58984]  = function() ICN2:Rest(5) end,            -- Shadowmeld
 }
 
 function ICN2:HandleAbilityRecovery(spellID)
-    if ABILITY_RECOVERY[spellID] then
-        ABILITY_RECOVERY[spellID]()
+    if ABILITY_RECOVERY[spellID] then ABILITY_RECOVERY[spellID]() end
+end
+
+-- ── /icn2 details ─────────────────────────────────────────────────────────────
+-- Collects and prints all active modifiers for the current tick.
+function ICN2:PrintDetails()
+    local s      = ICN2DB.settings
+    local preset = ICN2.PRESETS[s.preset] or 1.0
+    local mH, mT, mF, situLabels = getSituationMultipliers(true)
+    local armorMod, armorLabel   = getArmorFatigueModifier(true)
+
+    local dH = s.decayRates.hunger  * preset * mH
+    local dT = s.decayRates.thirst  * preset * mT
+    local dF = s.decayRates.fatigue * preset * mF * armorMod
+    local stanceGain = (restStance and ICN2.REST_STANCE_RATES[restStance] or 0)
+
+    local P = "|cFFFF6600ICN2|r"
+    local sep = "|cFF555555--------------------------------|r"
+
+    print(P .. " |cFFFFFF00Details|r — preset: " .. s.preset .. string.format(" (×%.2f)", preset))
+    print(sep)
+
+    -- Hunger
+    print(string.format(P .. " |cFF00FF00Hunger|r  %.1f%%  net |cFFFFFFFF%+.4f%%/s|r  (base %.5f × %.3f)",
+        ICN2DB.hunger, -dH, s.decayRates.hunger, preset * mH))
+
+    -- Thirst
+    print(string.format(P .. " |cFF4499FFThirst|r  %.1f%%  net |cFFFFFFFF%+.4f%%/s|r  (base %.5f × %.3f)",
+        ICN2DB.thirst, -dT, s.decayRates.thirst, preset * mT))
+
+    -- Fatigue (net includes stance gain)
+    print(string.format(P .. " |cFFFFDD00Fatigue|r %.1f%%  net |cFFFFFFFF%+.4f%%/s|r  (decay %.5f × %.3f, stance %+.4f/s)",
+        ICN2DB.fatigue, stanceGain - dF, s.decayRates.fatigue, preset * mF * armorMod, stanceGain))
+
+    print(sep)
+    print(P .. " |cFFAAAAAASituation modifiers:|r")
+    if #situLabels == 0 then
+        print("  |cFF888888none (walking/idle outdoors)|r")
+    else
+        for _, lbl in ipairs(situLabels) do
+            print("  |cFFCCCCCC" .. lbl .. "|r")
+        end
+    end
+    if armorLabel then
+        print("  |cFFCCCCCC" .. armorLabel .. "|r")
+    end
+    if restStance then
+        print(string.format("  |cFFCCCCCCstance:%s (+%.4f%%/s fatigue)|r",
+            restStance, stanceGain))
+    end
+    print(sep)
+    if ICN2:IsEating() then
+        print(P .. " |cFF00FF00Currently eating|r — hunger recovering")
+    end
+    if ICN2:IsDrinking() then
+        print(P .. " |cFF4499FFCurrently drinking|r — thirst recovering")
     end
 end
 
--- ── Slash command ─────────────────────────────────────────────────────────────
+-- ── Slash commands ────────────────────────────────────────────────────────────
 SLASH_ICN21 = "/icn2"
 SlashCmdList["ICN2"] = function(msg)
     msg = msg:lower():trim()
     if msg == "show" or msg == "" then
         ICN2:ToggleOptions()
     elseif msg == "eat" then
-        ICN2:Eat(50)
-        print("|cFFFF6600ICN2|r You eat something. Hunger restored.")
+        ICN2:Eat(50); print("|cFFFF6600ICN2|r You eat something. Hunger restored.")
     elseif msg == "drink" then
-        ICN2:Drink(50)
-        print("|cFFFF6600ICN2|r You drink something. Thirst restored.")
+        ICN2:Drink(50); print("|cFFFF6600ICN2|r You drink something. Thirst restored.")
     elseif msg == "rest" then
-        ICN2:Rest(40)
-        print("|cFFFF6600ICN2|r You rest. Fatigue restored.")
+        ICN2:Rest(40); print("|cFFFF6600ICN2|r You rest. Fatigue restored.")
     elseif msg == "reset" then
-        ICN2DB.hunger  = 100
-        ICN2DB.thirst  = 100
-        ICN2DB.fatigue = 100
+        ICN2DB.hunger = 100; ICN2DB.thirst = 100; ICN2DB.fatigue = 100
         ICN2:UpdateHUD()
         print("|cFFFF6600ICN2|r Needs reset to 100%.")
     elseif msg == "status" then
         print(string.format("|cFFFF6600ICN2|r Hunger: |cFF00FF00%.1f%%|r  Thirst: |cFF4499FF%.1f%%|r  Fatigue: |cFFFFDD00%.1f%%|r",
             ICN2DB.hunger, ICN2DB.thirst, ICN2DB.fatigue))
+    elseif msg == "details" then
+        ICN2:PrintDetails()
     elseif msg == "hud" then
         ICN2DB.settings.hudEnabled = not ICN2DB.settings.hudEnabled
         ICN2:UpdateHUD()
@@ -379,6 +391,6 @@ SlashCmdList["ICN2"] = function(msg)
         ICN2:LockHUD(ICN2DB.settings.hudLocked)
         print("|cFFFF6600ICN2|r HUD " .. (ICN2DB.settings.hudLocked and "|cFFFF0000locked|r" or "|cFF00FF00unlocked|r"))
     else
-        print("|cFFFF6600ICN2|r Commands: |cFFFFFF00/icn2|r [show|eat|drink|rest|reset|status|hud|lock]")
+        print("|cFFFF6600ICN2|r Commands: |cFFFFFF00/icn2|r [show|eat|drink|rest|reset|status|details|hud|lock]")
     end
 end
