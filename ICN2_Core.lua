@@ -74,7 +74,6 @@ local function migrateCustomDecayBiasFromLegacy() -- one-time migration of old c
         else
             v = tonumber(v) or 0
             local vi = math.floor(v + 0.5)
-            -- Legacy -10..10 bias scale → multiplier, then integer 0..maxM
             if v >= -10 and v <= 10 and math.abs(v - vi) < 0.001 then
                 local m = math.max(0, 1 + vi * 0.2)
                 cb[need] = math.max(0, math.min(maxM, math.floor(m + 0.5)))
@@ -202,7 +201,7 @@ end
 
 -- ══ SECTION 2 — Condition detection ════════════════════════════════════════════
 -- Each of these functions is called by ICN2_State.lua when it detects a change in the relevant conditions.
---They all simply call ICN2:UpdateState() to recalculate the current state and rates, which will trigger a HUD update and emotes if needed.
+-- They all simply call ICN2:UpdateState() to recalculate the current state and rates, which will trigger a HUD update and emotes if needed.
 
 function ICN2:DetectConditions()
     ICN2:UpdateState()
@@ -316,10 +315,8 @@ function ICN2:_ApplySelfModifiers(rates)
 end
 
 -- ── 5. Cross-need modifiers ───────────────────────────────────────────────────
--- One need's low level accelerates another need's decay rate.
--- Only modifies delta — never writes directly to need values.
+-- One need's low level accelerates another need's decay rate. Only modifies delta, never writes directly to need values.
 -- If multiple rules match the same source→target, last match wins (most severe).
--- Active rule labels stored in ICN2._crossNeedActive for /icn2 details.
 function ICN2:_ApplyCrossNeedModifiers(rates)
     local rules = ICN2.CROSS_NEED_RULES
     if not rules then return end
