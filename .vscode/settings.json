@@ -24,9 +24,7 @@
         "UIDropDownMenu_SetSelectedValue",
         "CloseDropDownMenus",
         "ICN2DB",
-        "GetUnitStandState",
-        "GetSpellDescription",
-        "DoEmote"
+        "GetUnitStandState"
     ],
     "Lua.diagnostics.disable": [
         "deprecated",
