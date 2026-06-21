@@ -18,6 +18,10 @@ local tabBtnDecay
 local presetBtns = {}
 local decaySliders = {}
 
+-- NEW: Capture UI references for dynamic theme toggling
+local labelDropdown
+local barLengthSlider
+
 -- ── Utility: create a simple label ───────────────────────────────────────────
 local function makeLabel(parent, text, x, y, r, g, b) -- color optional (default white)
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -172,6 +176,31 @@ local function makeTabButton(parent, text, x, y, onClick) -- Utility: creates a 
     return b
 end
 
+-- ── Theme Dependency Toggle ───────────────────────────────────────────────────
+local function UpdateThemeDependencies()
+    if not labelDropdown or not barLengthSlider then return end
+
+    local themeId = ICN2DB.settings.barTheme or "colorful"
+    local theme = ICN2.HUD_THEMES and ICN2.HUD_THEMES[themeId]
+
+    local showBars = true
+    if theme and theme.layout and theme.layout.showBars == false then
+        showBars = false
+    end
+
+    if showBars then
+        UIDropDownMenu_EnableDropDown(labelDropdown)
+        labelDropdown:SetAlpha(1.0)
+        barLengthSlider:Enable()
+        barLengthSlider:SetAlpha(1.0)
+    else
+        UIDropDownMenu_DisableDropDown(labelDropdown)
+        labelDropdown:SetAlpha(0.5)
+        barLengthSlider:Disable()
+        barLengthSlider:SetAlpha(0.5)
+    end
+end
+
 -- ── Build options panel ───────────────────────────────────────────────────────
 function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the options UI. The frame is hidden by default and shown when the user clicks "Options" in the slash command or via Interface Options.
     decaySliders = {}
@@ -299,6 +328,9 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
                 UIDropDownMenu_SetText(themeDropdown, t.label)
                 CloseDropDownMenus()
                 ICN2:SetBarTheme(themeId)
+
+                -- Trigger the UI toggle
+                UpdateThemeDependencies()
             end
             UIDropDownMenu_AddButton(info, level)
         end
@@ -311,7 +343,7 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
     { id = "both",       label = L["LABEL_BOTH"]       },
 }
 
-    local labelDropdown = CreateFrame("Frame", "ICN2LabelDropdown", panelGeneral, "UIDropDownMenuTemplate")
+    labelDropdown = CreateFrame("Frame", "ICN2LabelDropdown", panelGeneral, "UIDropDownMenuTemplate")
     labelDropdown:SetPoint("TOPLEFT", panelGeneral, "TOPLEFT", 188, -70)
 
     local function labelModeLabel()
@@ -357,7 +389,7 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
             if f then f:SetScale(v) end
         end)
 
-    makeSlider(panelGeneral, L["OPT_BAR_LENGTH"], 14, -172, 0.5, 1.5, 0.05,
+    barLengthSlider = makeSlider(panelGeneral, L["OPT_BAR_LENGTH"], 14, -172, 0.5, 1.5, 0.05,
         function() return ICN2DB.settings.hudBarScale or 1.0 end,
         function(v)
             ICN2DB.settings.hudBarScale = v
@@ -507,6 +539,7 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
     end)
 
     selectOptionsTab(1)
+    UpdateThemeDependencies() -- Initialize UI state
 end
 
 -- ── Toggle visibility ─────────────────────────────────────────────────────────

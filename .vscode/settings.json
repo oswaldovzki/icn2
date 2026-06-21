@@ -24,7 +24,9 @@
         "UIDropDownMenu_SetSelectedValue",
         "CloseDropDownMenus",
         "ICN2DB",
-        "GetUnitStandState"
+        "GetUnitStandState",
+        "UIDropDownMenu_EnableDropDown",
+        "UIDropDownMenu_DisableDropDown"
     ],
     "Lua.diagnostics.disable": [
         "deprecated",

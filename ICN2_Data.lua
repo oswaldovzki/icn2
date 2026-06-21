@@ -10,19 +10,35 @@ local L = setmetatable({}, { __index = function(_, k)
 end })
 
 -- Reset savedvariables.decayrates to new 2.0 logic
-local CURRENT_VERSION = 200
+local CURRENT_VERSION = 300
 
 function ICN2:RunMigrations()
+    if not ICN2DB.settings then
+        ICN2DB.settings = {}
+    end
+
     if not ICN2DB.version or ICN2DB.version < 200 then
-        
         ICN2DB.settings.decayRates = {}
         for k, v in pairs(ICN2.DEFAULTS.settings.decayRates) do
             ICN2DB.settings.decayRates[k] = v
         end
-        
-        ICN2DB.version = CURRENT_VERSION
-        
+
+        ICN2DB.version = 200
         print("|cFFFF6600ICN2|r: " .. L["MSG_RATES_UPDATED"])
+    end
+
+    if not ICN2DB.version or ICN2DB.version < 300 then
+        ICN2DB.settings.hudX = nil
+        ICN2DB.settings.hudY = nil
+        ICN2DB.settings.hudPosition = {
+            point = "CENTER",
+            relPoint = "CENTER",
+            x = 0,
+            y = 0,
+        }
+
+        ICN2DB.version = 300
+        print("|cFFFF6600ICN2|r: HUD position reset for v3 layout.")
     end
 end
 
@@ -57,13 +73,14 @@ ICN2.DEFAULTS = {
         },
 
         -- HUD
-        hudEnabled   = true,
-        hudLocked    = false,
-        hudScale     = 1.0,
-        hudAlpha     = 1.0,
-        hudBarScale  = 1.0,
-        hudX         = nil,
-        hudY         = nil,
+        hudEnabled    = true,
+        hudLocked     = false,
+        hudScale      = 1.0,
+        hudAlpha      = 1.0,
+        hudBarScale   = 1.0,
+        hudPosition   = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
+        hudX          = nil,
+        hudY          = nil,
 
         -- v1.1: Offline decay
         freezeOfflineNeeds = false,
