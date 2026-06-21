@@ -217,12 +217,59 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
 
     makeLabel(panelGeneral, L["OPT_SEC_THEME"], 200, -6, 1, 0.8, 0)
 
-    local THEMES = ICN2.HUD_THEME_LIST or {
-        { id = "smooth", label = "Smooth" },
-        { id = "blocky", label = "Blocky" },
-        { id = "folk", label = "Folk" },
-        { id = "necromancer", label = "Necromancer" },
-    }
+    -- ── Colorblind / Palette Dropdown ──────────────────────────────────────────
+    makeLabel(panelGeneral, "Color Palette", 200, -112, 1, 0.8, 0)
+    
+    local paletteDropdown = CreateFrame("Frame", "ICN2PaletteDropdown", panelGeneral, "UIDropDownMenuTemplate")
+    paletteDropdown:SetPoint("TOPLEFT", panelGeneral, "TOPLEFT", 188, -126)
+    UIDropDownMenu_SetWidth(paletteDropdown, 140)
+    
+    local function getPaletteLabel()
+        local current = ICN2DB.settings.colorPalette or "Default"
+        return current:gsub("_", " ")
+    end
+    UIDropDownMenu_SetText(paletteDropdown, getPaletteLabel())
+
+    UIDropDownMenu_Initialize(paletteDropdown, function(self, level)
+        -- Ensure ICN2.Palettes exists to prevent errors if Data.lua hasn't loaded properly
+        if not ICN2.Palettes then return end 
+        
+        for paletteName, colors in pairs(ICN2.Palettes) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = paletteName:gsub("_", " ")
+            info.arg1 = paletteName
+            info.checked = (ICN2DB.settings.colorPalette or "Default") == paletteName
+            info.func = function(self, arg1)
+                UIDropDownMenu_SetText(paletteDropdown, arg1:gsub("_", " "))
+                ICN2DB.settings.colorPalette = arg1
+
+                CloseDropDownMenus()
+                if ICN2.UpdateHUD then ICN2:UpdateHUD() end
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+
+    -- Build theme list from HUD_THEME_LIST when available, otherwise fall back to
+    -- enumerating ICN2.HUD_THEMES to avoid hard-coded mismatch during load order.
+    local THEMES = {}
+    if ICN2 and ICN2.HUD_THEME_LIST then
+        for _, t in ipairs(ICN2.HUD_THEME_LIST) do
+            table.insert(THEMES, { id = t.id, label = t.label })
+        end
+    elseif ICN2 and ICN2.HUD_THEMES then
+        for id, t in pairs(ICN2.HUD_THEMES) do
+            table.insert(THEMES, { id = t.id or id, label = t.label or (t.id or id) })
+        end
+    else
+        THEMES = {
+            { id = "colorful", label = "Colorful" },
+            { id = "smooth", label = "Smooth" },
+            { id = "blocky", label = "Blocky" },
+            { id = "folk", label = "Folk" },
+            { id = "necromancer", label = "Necromancer" },
+        }
+    end
 
     local themeDropdown = CreateFrame("Frame", "ICN2ThemeDropdown", panelGeneral, "UIDropDownMenuTemplate")
     themeDropdown:SetPoint("TOPLEFT", panelGeneral, "TOPLEFT", 188, -20)
