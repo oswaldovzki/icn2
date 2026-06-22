@@ -116,6 +116,9 @@ ICN2.HUD_THEMES = {
         id    = "colorful",
         label = "Colorful (Default)",
         mode  = "smooth",
+        layout = {
+            iconSize = 32,
+        },
         chrome = {
             bgCenter      = { 0.03, 0.03, 0.03, 0.65 },
             cornerTL      = nil, cornerTR = nil,
@@ -248,6 +251,13 @@ ICN2.HUD_THEMES = {
         id    = "dastardly",
         label = "Dastardly",
         mode  = "smooth",
+        assets = {
+            icons = {
+                hunger  = ASSETS_PATH .. "dastardly_skull_hunger.png",
+                thirst  = ASSETS_PATH .. "dastardly_skull_thirst.png",
+                fatigue = ASSETS_PATH .. "dastardly_skull_fatigue.png",
+            }
+        },
         chrome = {
             bgCenter      = { 0.04, 0.04, 0.04, 0.92 },
             cornerTL      = "UI-Frame-DastardlyDuos-CornerTopLeft",
