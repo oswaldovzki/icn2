@@ -2,6 +2,8 @@
 -- ICN2_FoodDrink.lua
 -- Tracks food and drink buffs, detects their tiers, and applies completion bonuses.
 -- Uses aura scanning for reliable detection of buffs that apply/expire during combat.
+-- Also keeps a short-lived memory of the last consumed food/drink item so item
+-- quality can be used as a fast-path hint before the aura logic runs.
 -- ============================================================
 
 ICN2 = ICN2 or {}
@@ -12,14 +14,14 @@ end })
 
 -- ── Constants ─────────────────────────────────────────────────────────────────
 -- Tier data defines the recovery rates and completion bonuses for each food/drink tier
--- All values are in FIXED POINTS (not percentages), same for all races
 local TIER_DATA = {
-    simple  = { trickle = 50.0, bonus = 10.0 },  -- Simple items: 20 points over duration + 10 point bonus
-    complex = { trickle = 60.0, bonus = 15.0 },  -- Complex items: 40 points over duration + 15 point bonus
-    feast   = { trickle = 80.0, bonus = 20.0 },  -- Feasts: 60 points over duration + 20 point bonus, applies to both hunger and thirst
+    simple  = { trickle = 30.0, bonus = 10.0 },  -- Simple items: 30 points over duration + 10 point bonus
+    complex = { trickle = 40.0, bonus = 20.0 },  -- Complex items: 40 points over duration + 20 point bonus
+    feast   = { trickle = 60.0, bonus = 40.0 },  -- Feasts: 60 points over duration + 40 point bonus, applies to both hunger and thirst
 }
 
 local WELLFED_PAUSE_SECS = 300  -- 5 minutes of hunger decay pause from well-fed buff
+local CONSUMABLE_HINT_TTL = 2.0  -- seconds to keep the most recent consumable-use hint
 
 -- ── Public state (read by Core) ───────────────────────────────────────────────
 ICN2._wellFedPauseExpiry = 0    -- GetTime() timestamp when well-fed pause expires; 0 = not active
@@ -28,6 +30,14 @@ ICN2._wellFedPauseExpiry = 0    -- GetTime() timestamp when well-fed pause expir
 -- Tracks current food and drink consumption states
 local foodState  = { active = false, startTime = nil, duration = nil, tier = nil }
 local drinkState = { active = false, startTime = nil, duration = nil, tier = nil }
+
+-- Short-lived hint captured from the moment the player uses a consumable item.
+ICN2._recentConsumableUse = {
+    tier       = nil,
+    quality    = nil,
+    itemRef    = nil,
+    expiresAt  = 0,
+}
 
 -- ── Aura name patterns ────────────────────────────────────────────────────────
 local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }  -- No ^ anchor - these are safe
@@ -55,6 +65,88 @@ local function matchesAny(name, patterns)
         end
     end
     return false
+end
+
+local function qualityToTierHint(quality)
+    quality = tonumber(quality)
+    if not quality then return nil end
+
+    -- Conservative mapping:
+    --   common -> no hint, let aura/bag logic decide
+    --   uncommon -> complex
+    --   rare+ -> feast
+    if quality == 2 then
+        return "complex"
+    elseif quality >= 3 then
+        return "feast"
+    end
+    return nil
+end
+
+local function isFoodDrinkItem(itemRef)
+    if not itemRef then return false end
+
+    local itemID = tonumber(itemRef)
+    if not itemID and type(itemRef) == "string" then
+        itemID = GetItemInfoInstant(itemRef)
+    end
+    if not itemID and type(itemRef) == "string" then
+        local _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemRef)
+        return classID == 0 and subClassID == 5
+    end
+    if not itemID then return false end
+
+    local _, _, _, _, _, classID, subClassID = GetItemInfoInstant(itemID)
+    return classID == 0 and subClassID == 5
+end
+
+local function cacheRecentConsumableUse(itemRef, itemQuality)
+    if not itemRef then return end
+    if not isFoodDrinkItem(itemRef) then return end
+
+    local quality = itemQuality
+    if quality == nil then
+        quality = select(3, GetItemInfo(itemRef))
+    end
+    local tier = qualityToTierHint(quality)
+    if not tier then return end
+
+    ICN2._recentConsumableUse.tier      = tier
+    ICN2._recentConsumableUse.quality   = quality
+    ICN2._recentConsumableUse.itemRef   = itemRef
+    ICN2._recentConsumableUse.expiresAt = GetTime() + CONSUMABLE_HINT_TTL
+end
+
+local function cacheRecentConsumableUseFromBag(bag, slot)
+    if not C_Container or not C_Container.GetContainerItemInfo then return end
+
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    if not info then return end
+
+    local itemID = info.itemID or (C_Container.GetContainerItemID and C_Container.GetContainerItemID(bag, slot))
+    if not itemID then return end
+
+    cacheRecentConsumableUse(itemID, info.quality)
+end
+
+local function consumeRecentConsumableTier()
+    local hint = ICN2._recentConsumableUse
+    if not hint or not hint.tier then return nil end
+
+    if hint.expiresAt and GetTime() > hint.expiresAt then
+        hint.tier      = nil
+        hint.quality   = nil
+        hint.itemRef   = nil
+        hint.expiresAt = 0
+        return nil
+    end
+
+    local tier = hint.tier
+    hint.tier      = nil
+    hint.quality   = nil
+    hint.itemRef   = nil
+    hint.expiresAt = 0
+    return tier
 end
 
 -- ── Persistent aura cache ─────────────────────────────────────────────────────
@@ -175,12 +267,16 @@ end
 
 -- Detects food tier, checking for feast keywords in aura name first
 local function detectFoodTier(foodAura)
+    local recentTier = consumeRecentConsumableTier()
+    if recentTier then return recentTier end
     local isFeast = matchesAny(foodAura.name, FEAST_NAME_PATTERNS)
     return detectTierFromBags(isFeast)
 end
 
 -- Detects drink tier, inheriting feast status from food if applicable
 local function detectDrinkTier()
+    local recentTier = consumeRecentConsumableTier()
+    if recentTier then return recentTier end
     if foodState.active and foodState.tier == "feast" then return "feast" end
     return detectTierFromBags(false)
 end
@@ -220,8 +316,7 @@ end
 -- ── Main aura handler ────────────────────────────────────────────────────────
 -- Entry point called by Core's UNIT_AURA event with the raw updateInfo payload.
 -- Step 1: Update the shared aura cache (delta patch or full rebuild).
--- Step 2: Derive food/drink/wellfed state from the now-current cache.
--- State.lua reads ICN2._auraCache directly for campfire/sitting — no extra scan needed.
+-- Step 2: Derive food/drink/wellfed state from the now-current cache
 function ICN2:OnUnitAura(updateInfo)
     -- ── Step 1: maintain the cache ────────────────────────────────────────────
     -- updateInfo == nil is Blizzard's signal for a full refresh (login, reload, etc.)
@@ -297,6 +392,32 @@ function ICN2:OnUnitAura(updateInfo)
         end
     end
 end
+
+local function installConsumableHooks()
+    if ICN2._consumableHooksInstalled then return end
+    ICN2._consumableHooksInstalled = true
+
+    if hooksecurefunc then
+        if C_Container and C_Container.UseContainerItem then
+            hooksecurefunc(C_Container, "UseContainerItem", function(bag, slot)
+                cacheRecentConsumableUseFromBag(bag, slot)
+            end)
+        end
+
+        hooksecurefunc("UseAction", function(slot)
+            local actionType, id = GetActionInfo(slot)
+            if actionType == "item" and id then
+                cacheRecentConsumableUse(id, select(3, GetItemInfo(id)))
+            end
+        end)
+
+        hooksecurefunc("UseItemByName", function(itemRef)
+            cacheRecentConsumableUse(itemRef)
+        end)
+    end
+end
+
+installConsumableHooks()
 
 -- ── Stubs ─────────────────────────────────────────────────────────────────────
 -- Legacy function stubs for compatibility (no longer used in current implementation)

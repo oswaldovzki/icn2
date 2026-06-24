@@ -10,19 +10,35 @@ local L = setmetatable({}, { __index = function(_, k)
 end })
 
 -- Reset savedvariables.decayrates to new 2.0 logic
-local CURRENT_VERSION = 200
+local CURRENT_VERSION = 300
 
 function ICN2:RunMigrations()
+    if not ICN2DB.settings then
+        ICN2DB.settings = {}
+    end
+
     if not ICN2DB.version or ICN2DB.version < 200 then
-        
         ICN2DB.settings.decayRates = {}
         for k, v in pairs(ICN2.DEFAULTS.settings.decayRates) do
             ICN2DB.settings.decayRates[k] = v
         end
-        
-        ICN2DB.version = CURRENT_VERSION
-        
+
+        ICN2DB.version = 200
         print("|cFFFF6600ICN2|r: " .. L["MSG_RATES_UPDATED"])
+    end
+
+    if not ICN2DB.version or ICN2DB.version < 300 then
+        ICN2DB.settings.hudX = nil
+        ICN2DB.settings.hudY = nil
+        ICN2DB.settings.hudPosition = {
+            point = "CENTER",
+            relPoint = "CENTER",
+            x = 0,
+            y = 0,
+        }
+
+        ICN2DB.version = 300
+        print("|cFFFF6600ICN2|r: HUD position reset for v3 layout.")
     end
 end
 
@@ -39,7 +55,7 @@ ICN2.DEFAULTS = {
         -- "fast" | "medium" | "slow" | "realistic" | "custom"
         preset = "medium",
 
-        -- Only when preset == "custom". Integer 0..CUSTOM_DECAY_MULTIPLIER_MAX (see below).
+        -- Only when preset == "custom". Integer 0..CUSTOM_DECAY_MULTIPLIER_MAX.
         customDecayBias = {
             hunger  = 1,
             thirst  = 1,
@@ -53,43 +69,58 @@ ICN2.DEFAULTS = {
         decayRates = {
             hunger  = 0.0278,  -- 50 pts in 30 min at 1.0×
             thirst  = 0.0278,
-            fatigue = 0.0167,  -- 30 pts in 30 min
+            fatigue = 0.0167,  -- 30 pts in 30 min at 1.0×
         },
 
         -- HUD
-        hudEnabled   = true,
-        hudLocked    = false,
-        hudScale     = 1.0,
-        hudAlpha     = 1.0,
-        hudBarScale  = 1.0,
-        hudX         = nil,
-        hudY         = nil,
+        hudEnabled    = true,
+        hudLocked     = false,
+        hudScale      = 1.0,
+        hudAlpha      = 1.0,
+        hudBarScale   = 1.0,
+        hudPosition   = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
+        hudX          = nil,
+        hudY          = nil,
 
         -- v1.1: Offline decay
-        freezeOfflineNeeds = false,  -- if true, needs are frozen while logged out
+        freezeOfflineNeeds = false,
 
         -- v1.1: Blocky bar display
-        blockyBars = false,  -- if true, HUD shows 10 discrete blocks instead of smooth bar
+        blockyBars = false,
 
         -- Emotes
         emotesEnabled    = true,
         emoteChance      = 0.3,  -- probability per threshold crossing (0-1)
         emoteMinInterval = 120,  -- minimum seconds between emotes
 
-        -- Bar colors (r, g, b)
-        colorHunger  = {0.2, 0.8, 0.2},
-        colorThirst  = {0.2, 0.5, 1.0},
-        colorFatigue = {1.0, 0.85, 0.1},
+        -- Color Palettes
+        colorPalette = "Default",
+        hunger  = {0.2, 0.8, 0.2},
+        thirst  = {0.2, 0.5, 1.0},
+        fatigue = {1.0, 0.85, 0.1}
     },
+}
+
+ICN2.Palettes = {
+    Default = {
+        hunger  = {0.2, 0.8, 0.2},
+        thirst  = {0.2, 0.5, 1.0},
+        fatigue = {1.0, 0.85, 0.1}
+    },
+    Colorblind_OkabeIto = {
+        hunger  = {0.84, 0.37, 0.00},  -- Vermilion (High contrast to blue/yellow)
+        thirst  = {0.34, 0.71, 0.91},  -- Sky Blue
+        fatigue = {0.94, 0.89, 0.26}   -- Yellow
+    }
 }
 
 -- ── Preset multipliers (applied to base decay) ────────────────────────────────
 -- Multipliers for decay rates: higher values mean faster decay (needs deplete quicker).
 ICN2.PRESETS = {
-    fast      = 2.00,   -- doubled
+    fast      = 5.00,   -- doubled
     medium    = 1.00,   -- baseline
     slow      = 0.20,   -- 5× slower than medium
-    realistic = 0.02,   -- 50× slower than medium
+    realistic = 0.01,   -- 10× slower than medium
     custom    = 1.00
 }
 
@@ -101,12 +132,12 @@ ICN2.CUSTOM_DECAY_MULTIPLIER_MAX = 20 * ICN2.PRESETS.medium
 -- Each situation applies its multipliers to hunger, thirst, and fatigue.
 ICN2.SITUATION_MODIFIERS = {
     swimming   = { hunger = 1.4, thirst = 1.5, fatigue = 1.8 },
-    flying     = { hunger = 0.9, thirst = 1.0, fatigue = 0.6 },
+    flying     = { hunger = 0.9, thirst = 1.1, fatigue = 0.6 },
     mounted    = { hunger = 0.8, thirst = 0.9, fatigue = 0.5 },
     resting    = { hunger = 0.5, thirst = 0.6, fatigue = 0.2 },
-    combat     = { hunger = 1.2, thirst = 1.3, fatigue = 1.5 },
+    combat     = { hunger = 1.3, thirst = 1.2, fatigue = 1.5 },
     indoors    = { hunger = 1.0, thirst = 1.0, fatigue = 0.8 },
-    instance   = { hunger = 1.0, thirst = 1.0, fatigue = 1.0 },
+    instance   = { hunger = 1.2, thirst = 1.2, fatigue = 1.0 },
 }
 
 -- ── Race modifiers (multiplied on top of situation) ───────────────────────────
@@ -242,7 +273,7 @@ function ICN2:GetNeedPercent(need)
     return (current / maxVal) * 100
 end
 
--- ── Self-modifier curves (Phase 2 — non-linear decay) ─────────────────────────
+-- ── Self-modifier curves (Phase 1 — non-linear decay) ─────────────────────────
 -- When a need is already low, its decay accelerates — creating urgency without
 -- punishing the player at normal levels.
 --
@@ -256,8 +287,8 @@ ICN2.SELF_MODIFIER_CURVES = {
     hunger = {
         low_threshold  = 35,   -- matches ICN2.THRESHOLDS.low
         crit_threshold = 15,   -- matches ICN2.THRESHOLDS.critical
-        low_mult       = 1.10, -- 25% faster between low and critical
-        crit_mult      = 1.20, -- 60% faster at critical (starving panic)
+        low_mult       = 1.10, -- 10% faster between low and critical
+        crit_mult      = 1.20, -- 20% faster at critical (starving panic)
     },
     thirst = {
         low_threshold  = 35,
@@ -292,7 +323,7 @@ ICN2.CROSS_NEED_RULES = {
     },
 }
 
--- ── Housing zone detection ────────────────────────────────────────────────────
+-- ── Armor Fatigue Decay ────────────────────────────────────────────────────
 ICN2.ARMOR_FATIGUE = {
     PLATE  = 1.20, -- heaviest armor causes more fatigue
     MAIL   = 1.10, -- medium armor has a moderate effect
@@ -319,9 +350,6 @@ ICN2.CAMPFIRE_PATTERNS = {
 }
 
 -- ── Housing zone detection ────────────────────────────────────────────────────
--- We primarily detect housing via the Cozy Fire aura; the map list below is
--- a fallback for when the buff hasn't applied yet.
--- Map IDs will need updating as Blizzard adds more housing zones.
 ICN2.HOUSING_MAP_IDS = {
     [2736] = true, -- Housing neighborhood (Razorwind Shores)
     [3027] = true, -- Warband Housing neighborhood (Razorwind Shores)

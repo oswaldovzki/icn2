@@ -49,3 +49,56 @@
 ### Aura Scanning
 
 - Added persistent aura cache with delta-based updates, reducing redundant scans and improving tick performance.
+
+## v2.2.0
+
+### Accessibility
+
+- Added preliminary support for future accessibility options, including colorblindness.
+
+## v2.2.1
+
+### TOC
+
+- Updated TOC version to support 12.0.7.
+
+## v2.3.0
+
+### Food Quality
+
+- Food/Drink now restores more points the higher its quality
+- Common (white) restores 30 points
+- Uncommon (green) restores 40 points
+- Rare (blue and higher) restores 60 points
+
+### UI Updates
+
+- Refactored UI rendering code to improve maintainability and support future updates.
+- Updated state icons for clarity.
+- Adjusted recovery and decay state indicator thresholds.
+- Moved all images to a dedicated "assets" folder.
+- Fixed issues with the Blocky theme.
+- Tuned default values for Fast and Realistic settings.
+- Increased Instanced decay by 10%.
+- Increased Hunger recovery from Cannibalize to 60 points.
+
+## v2.4.0
+
+### Refactor Themes Engine
+
+- Created a completly new way to render new themes
+ - Mostly backend logic
+
+### UI Updates
+
+- Introducing new default theme called "Colorful"
+ - Created new icon for the Needs
+ - Crated new texture for the bars
+- minor changes to the HUD
+
+
+## Known Issues
+
+- Certain Drink (I believe legacy items) items do not apply the "Drink" aura and therefore fail to restore "Thirst".
+- This behavior has been reported to Blizzard; it is unclear whether it is intended.
+- Workaround: Manually replenish the "Thirst" state via the ICN2 settings menu.
