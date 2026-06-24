@@ -519,9 +519,28 @@ function ICN2:ApplyHUDTheme(themeId) -- walks theme descriptor and applies textu
     ICN2DB.settings.barTheme   = theme.id
     ICN2DB.settings.blockyBars = (theme.mode == "blocky")
 
+<<<<<<< Updated upstream
     local c          = theme.chrome or {}
     local cornerSize = c.cornerSize    or 8
     local edgeThick  = c.edgeThickness or 4
+=======
+    local layout      = theme.layout or {}
+    local c           = theme.chrome or {}
+    local cornerSize  = c.cornerSize    or 8
+    local edgeThick   = c.edgeThickness or 4
+    local showChrome  = layout.showChrome ~= false
+    local showHeader  = layout.showHeader ~= false
+    local showIcons   = layout.showIcons  ~= false
+    local showBars    = layout.showBars   ~= false
+    local showGlyphs  = layout.showGlyphs ~= false
+    local iconSize    = layout.iconSize   or ICON_SIZE
+    local barScale    = ICN2DB.settings.hudBarScale or 1.0
+    local barWidth    = math.floor((layout.barWidth or BASE_BAR_W) * barScale)
+    local barHeight   = layout.barHeight  or BAR_H
+    local iconAnchor  = layout.iconAnchor or { point = "LEFT", relPoint = "LEFT", x = 0, y = 0 }
+    local barAnchor   = layout.barAnchor  or { point = "LEFT", relPoint = "LEFT", x = iconSize + 4, y = 0 }
+    local glyphAnchor = layout.glyphAnchor or { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 }
+>>>>>>> Stashed changes
 
     -- Background
     applyTexSlot(chrome.bgCenter, c.bgCenter)
