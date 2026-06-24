@@ -22,31 +22,27 @@
 --   tick()  — applies rates → clamp → HUD → emotes
 --
 -- Core owns: scheduler, persistence, rate engine, events.
--- Core does NOT own: condition detection (→ ICN2_State.lua).
+-- Core does NOT own: condition detection (that's ICN2_State.lua).
 -- ══════════════════════════════════════════════════════════
 
 ICN2 = ICN2 or {}
 
--- ICN2_Localization.lua loads before this file (see .toc order) and sets ICN2.L.
--- We alias it at file scope so all functions below can use the short form.
--- The metatable fallback in Localization guarantees missing keys return themselves.
-local L = setmetatable({}, { __index = function(_, k)
+local L = setmetatable({}, { __index = function(_, k) -- fallback for missing localization keys;
     return ICN2.L and ICN2.L[k] or k
 end })
 
 -- ── Frame and tick ────────────────────────────────────────────────────────────
-local frame        = CreateFrame("Frame", "ICN2Frame", UIParent) -- single frame for handling all events and OnUpdate; we keep it local since external modules don't need to access it
+local frame        = CreateFrame("Frame", "ICN2Frame", UIParent) -- single frame for handling all events and OnUpdate; I keep it local since external modules don't need to access it
 local tickInterval = 1.0 -- seconds between each tick; OnUpdate accumulates elapsed time and triggers a tick when the interval is reached
-local elapsed      = 0 -- accumulator for elapsed time in OnUpdate; when it reaches tickInterval, we reset it and call tick()
+local elapsed      = 0 -- accumulator for elapsed time in OnUpdate; when it reaches tickInterval, I reset it and call tick()
 
--- ── Armor fatigue cache ───────────────────────────────────────────────────────
--- GetItemInfo is async — we cache on login/equipment-change and never call it from inside the tick or the rate engine.
+-- ── Armor fatigue async cache ───────────────────────────────────────────────────────
 local armorFatigueCache = nil
 
 -- ── Public state (read by HUD, FoodDrink, PrintDetails) ──────────────────────
 ICN2._lastRates             = { hunger = 0, thirst = 0, fatigue = 0 }
-ICN2._lastWellFedInstanceID = nil       -- to track when the Well Fed buff is refreshed;
-ICN2._wellFedPauseExpiry    = 0         -- timestamp when the current Well Fed pause expires; if GetTime() < this value, hunger decay is paused
+ICN2._lastWellFedInstanceID = nil       -- to track when the "Well Fed" buff is refreshed;
+ICN2._wellFedPauseExpiry    = 0         -- timestamp when the current "Well Fed" pause expires; if GetTime() < this value, hunger decay is paused
 ICN2._fatigueRecoveryTier   = "none"    -- "fast", "slow", or "none" based on current conditions (for PrintDetails)
 ICN2._fatigueRecoverySrc    = ""        -- human-readable description of the source of fatigue recovery (e.g. "resting near campfire") for display in PrintDetails
 ICN2._crossNeedActive       = {}        -- list of active cross-need modifiers for display in PrintDetails (e.g. "hunger → fatigue coupling")
@@ -294,8 +290,6 @@ end
 
 -- ── 4. Self modifiers (non-linear decay) ─────────────────────────────────────
 -- As hunger/thirst/fatigue drop below certain thresholds, their decay rates accelerate according to the curves defined in ICN2.SELF_MODIFIER_CURVES in ICN2_Data.lua.
--- This is applied after all previous modifiers and only affects the need's own decay rate (not cross-need effects).
--- The curves specify a low threshold and a critical threshold, each with its own multiplier, so that decay can accelerate in stages as the need gets lower; this adds a layer of non-linearity to the system, making it more punishing to let needs get too low
 function ICN2:_ApplySelfModifiers(rates)
     local curves = ICN2.SELF_MODIFIER_CURVES
     if not curves then return end
@@ -336,15 +330,13 @@ function ICN2:_ApplyCrossNeedModifiers(rates)
 end
 
 -- ── 6. Armor modifier ─────────────────────────────────────────────────────────
-function ICN2:_ApplyArmorModifier(rates) -- Scales fatigue decay by armor type. Uses the cached armorFatigueCache set by refreshArmorCache(), or defaults to CLOTH if the cache is not yet available.
+function ICN2:_ApplyArmorModifier(rates) -- Scales fatigue decay by armor type.
     local armor = armorFatigueCache or ICN2.ARMOR_FATIGUE.CLOTH
     rates.fatigue = rates.fatigue * armor
 end
 
 -- ── 7. Food / drink recovery ──────────────────────────────────────────────────
 -- Adds a positive trickle to hunger/thirst while the eating/drinking buff is active.
--- Trickle values are in FIXED POINTS, spread evenly over buff duration.
--- This means all races recover the same absolute points, but different percentages of their bar.
 local FOOD_TRICKLE = { simple = 30.0, complex = 40.0, feast = 60.0 }
 
 function ICN2:_ApplyFoodDrinkRecovery(rates)
@@ -561,7 +553,7 @@ function ICN2:RestStanceTick() end -- stub for future use; called each tick afte
 -- ══ SECTION 7 — Racial / class ability recovery ════════════════════════════════
 
 local ABILITY_RECOVERY = {
-    [20577]  = function() ICN2:Eat(40)  end,   -- Cannibalize
+    [20577]  = function() ICN2:Eat(60)  end,   -- Cannibalize
     [108968] = function() ICN2:Drink(40) end,  -- Symbiosis (water)
     [204065] = function() ICN2:Eat(10); ICN2:Rest(10) end, -- Spirit Mend
     [58984]  = function() ICN2:Rest(5)  end, -- Shadowmeld
@@ -753,4 +745,3 @@ SlashCmdList["ICN2"] = function(msg) -- handles slash commands for showing the o
         print("|cFFFF6600ICN2|r " .. L["MSG_COMMANDS"])
     end
 end
-    

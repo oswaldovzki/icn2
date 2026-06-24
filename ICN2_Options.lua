@@ -18,6 +18,10 @@ local tabBtnDecay
 local presetBtns = {}
 local decaySliders = {}
 
+-- NEW: Capture UI references for dynamic theme toggling
+local labelDropdown
+local barLengthSlider
+
 -- ── Utility: create a simple label ───────────────────────────────────────────
 local function makeLabel(parent, text, x, y, r, g, b) -- color optional (default white)
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -172,6 +176,31 @@ local function makeTabButton(parent, text, x, y, onClick) -- Utility: creates a 
     return b
 end
 
+-- ── Theme Dependency Toggle ───────────────────────────────────────────────────
+local function UpdateThemeDependencies()
+    if not labelDropdown or not barLengthSlider then return end
+
+    local themeId = ICN2DB.settings.barTheme or "colorful"
+    local theme = ICN2.HUD_THEMES and ICN2.HUD_THEMES[themeId]
+
+    local showBars = true
+    if theme and theme.layout and theme.layout.showBars == false then
+        showBars = false
+    end
+
+    if showBars then
+        UIDropDownMenu_EnableDropDown(labelDropdown)
+        labelDropdown:SetAlpha(1.0)
+        barLengthSlider:Enable()
+        barLengthSlider:SetAlpha(1.0)
+    else
+        UIDropDownMenu_DisableDropDown(labelDropdown)
+        labelDropdown:SetAlpha(0.5)
+        barLengthSlider:Disable()
+        barLengthSlider:SetAlpha(0.5)
+    end
+end
+
 -- ── Build options panel ───────────────────────────────────────────────────────
 function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the options UI. The frame is hidden by default and shown when the user clicks "Options" in the slash command or via Interface Options.
     decaySliders = {}
@@ -217,12 +246,59 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
 
     makeLabel(panelGeneral, L["OPT_SEC_THEME"], 200, -6, 1, 0.8, 0)
 
-    local THEMES = ICN2.HUD_THEME_LIST or {
-        { id = "smooth", label = "Smooth" },
-        { id = "blocky", label = "Blocky" },
-        { id = "folk", label = "Folk" },
-        { id = "necromancer", label = "Necromancer" },
-    }
+    -- ── Colorblind / Palette Dropdown ──────────────────────────────────────────
+    makeLabel(panelGeneral, "Color Palette", 200, -112, 1, 0.8, 0)
+    
+    local paletteDropdown = CreateFrame("Frame", "ICN2PaletteDropdown", panelGeneral, "UIDropDownMenuTemplate")
+    paletteDropdown:SetPoint("TOPLEFT", panelGeneral, "TOPLEFT", 188, -126)
+    UIDropDownMenu_SetWidth(paletteDropdown, 140)
+    
+    local function getPaletteLabel()
+        local current = ICN2DB.settings.colorPalette or "Default"
+        return current:gsub("_", " ")
+    end
+    UIDropDownMenu_SetText(paletteDropdown, getPaletteLabel())
+
+    UIDropDownMenu_Initialize(paletteDropdown, function(self, level)
+        -- Ensure ICN2.Palettes exists to prevent errors if Data.lua hasn't loaded properly
+        if not ICN2.Palettes then return end 
+        
+        for paletteName, colors in pairs(ICN2.Palettes) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = paletteName:gsub("_", " ")
+            info.arg1 = paletteName
+            info.checked = (ICN2DB.settings.colorPalette or "Default") == paletteName
+            info.func = function(self, arg1)
+                UIDropDownMenu_SetText(paletteDropdown, arg1:gsub("_", " "))
+                ICN2DB.settings.colorPalette = arg1
+
+                CloseDropDownMenus()
+                if ICN2.UpdateHUD then ICN2:UpdateHUD() end
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+
+    -- Build theme list from HUD_THEME_LIST when available, otherwise fall back to
+    -- enumerating ICN2.HUD_THEMES to avoid hard-coded mismatch during load order.
+    local THEMES = {}
+    if ICN2 and ICN2.HUD_THEME_LIST then
+        for _, t in ipairs(ICN2.HUD_THEME_LIST) do
+            table.insert(THEMES, { id = t.id, label = t.label })
+        end
+    elseif ICN2 and ICN2.HUD_THEMES then
+        for id, t in pairs(ICN2.HUD_THEMES) do
+            table.insert(THEMES, { id = t.id or id, label = t.label or (t.id or id) })
+        end
+    else
+        THEMES = {
+            { id = "colorful", label = "Colorful" },
+            { id = "smooth", label = "Smooth" },
+            { id = "blocky", label = "Blocky" },
+            { id = "folk", label = "Folk" },
+            { id = "necromancer", label = "Necromancer" },
+        }
+    end
 
     local themeDropdown = CreateFrame("Frame", "ICN2ThemeDropdown", panelGeneral, "UIDropDownMenuTemplate")
     themeDropdown:SetPoint("TOPLEFT", panelGeneral, "TOPLEFT", 188, -20)
@@ -252,6 +328,9 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
                 UIDropDownMenu_SetText(themeDropdown, t.label)
                 CloseDropDownMenus()
                 ICN2:SetBarTheme(themeId)
+
+                -- Trigger the UI toggle
+                UpdateThemeDependencies()
             end
             UIDropDownMenu_AddButton(info, level)
         end
@@ -264,7 +343,7 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
     { id = "both",       label = L["LABEL_BOTH"]       },
 }
 
-    local labelDropdown = CreateFrame("Frame", "ICN2LabelDropdown", panelGeneral, "UIDropDownMenuTemplate")
+    labelDropdown = CreateFrame("Frame", "ICN2LabelDropdown", panelGeneral, "UIDropDownMenuTemplate")
     labelDropdown:SetPoint("TOPLEFT", panelGeneral, "TOPLEFT", 188, -70)
 
     local function labelModeLabel()
@@ -310,7 +389,7 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
             if f then f:SetScale(v) end
         end)
 
-    makeSlider(panelGeneral, L["OPT_BAR_LENGTH"], 14, -172, 0.5, 1.5, 0.05,
+    barLengthSlider = makeSlider(panelGeneral, L["OPT_BAR_LENGTH"], 14, -172, 0.5, 1.5, 0.05,
         function() return ICN2DB.settings.hudBarScale or 1.0 end,
         function(v)
             ICN2DB.settings.hudBarScale = v
@@ -460,6 +539,7 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
     end)
 
     selectOptionsTab(1)
+    UpdateThemeDependencies() -- Initialize UI state
 end
 
 -- ── Toggle visibility ─────────────────────────────────────────────────────────
