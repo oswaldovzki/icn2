@@ -16,6 +16,7 @@ local headerFrame
 local contentFrame
 local chrome = {}
 local bars   = {}
+local headerBtns = {}
 
 -- ── Layout constants ──────────────────────────────────────────────────────────
 local BAR_H       = 20
@@ -101,10 +102,24 @@ ICN2.THEME_BASE = {
         iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 0, y = 0 },
         barAnchor   = { point = "LEFT", relPoint = "LEFT", x = ICON_SIZE + 4, y = 0 },
         glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 },
+        
+        -- NEW: Header button layout
+        headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = 0, y = -4 },
+        headerBtnSize   = 24,
+        headerBtnGap    = 4,
     },
     assets = {
         fillTex = DEFAULT_FILL_TEX,
         icons   = NEED_ICONS,
+        
+        -- NEW: Dynamic texture slots
+        rowBG       = nil,
+        indicatorBG = nil,
+        headerBtns  = {
+            btn1 = "loreobject-32x32",
+            btn2 = "glues-characterSelect-icon-notify-inProgress-hover",
+            btn3 = "Interface\\Buttons\\UI-GroupLoot-Pass-Up",
+        }
     },
     barColors = BLOCK_COLORS,
 }
@@ -120,7 +135,7 @@ ICN2.HUD_THEMES = {
             iconSize = 16,
         },
         chrome = {
-            bgCenter      = { 0.03, 0.03, 0.03, 0.65 },
+            bgCenter      = { 0.03, 0.03, 0.03, 0.25 },
             cornerTL      = nil, cornerTR = nil,
             cornerBL      = nil, cornerBR = nil,
             edgeTop       = nil, edgeBottom = nil,
@@ -130,7 +145,11 @@ ICN2.HUD_THEMES = {
         },
         bar = {
             overlay = ASSETS_PATH .. "inc2_hunger_overlay-bar.png",
-            bg      = ASSETS_PATH .. "icn2-bg-hunger-bar.png",
+            bg      = {
+                hunger  = ASSETS_PATH .. "icn2-bg-hunger-bar.png",
+                thirst  = ASSETS_PATH .. "icn2-bg-thirst-bar.png",
+                fatigue = ASSETS_PATH .. "icn2-bg-sleep-bar.png",
+            },
             fills   = {
                 hunger  = ASSETS_PATH .. "inc2_hunger_barfill.png",
                 thirst  = ASSETS_PATH .. "inc2_thirst_barfill.png",
@@ -223,26 +242,49 @@ ICN2.HUD_THEMES = {
 
     necromancer = {
         id    = "necromancer",
-        label = "Necromancer  |cFF888888(WIP)|r",
+        label = "Necromancer",
         mode  = "smooth",
+        layout = {
+            cornerSize = 64,
+            edgeThickness = 16,
+            barAnchor = { point = "LEFT", relPoint = "LEFT", x = 40, y = 0 },
+        },
         chrome = {
-            bgCenter      = { 0.03, 0.03, 0.04, 0.96 },
-            cornerTL      = "Necrolord-NineSlice-CornerTopLeft", cornerTR = "Necrolord-NineSlice-CornerTopRight",
-            cornerBL      = nil, cornerBR = nil,
-            edgeTop       = nil, edgeBottom = nil,
-            edgeLeft      = "Necrolord-NineSlice-CornerBottomLeft", edgeRight  = "Necrolord-NineSlice-CornerBottomRight",
-            titleStrip    = "UI-Frame-Necrolord-Ribbon",
-            cornerSize    = 8,
-            edgeThickness = 4,
+            bgCenter      = ASSETS_PATH .. "necromancer\\necro_parchment_bg.png",
+            cornerTL      = ASSETS_PATH .. "necromancer\\necro_corner_TL.png",
+            cornerTR      = ASSETS_PATH .. "necromancer\\necro_corner_TR.png",
+            cornerBL      = ASSETS_PATH .. "necromancer\\necro_corner_BL.png",
+            cornerBR      = ASSETS_PATH .. "necromancer\\necro_corner_BR.png",
+            edgeTop       = ASSETS_PATH .. "necromancer\\necro_edge_top.png",
+            edgeBottom    = ASSETS_PATH .. "necromancer\\necro_edge_bottom.png",
+            edgeLeft      = ASSETS_PATH .. "necromancer\\necro_edge_left.png",
+            edgeRight     = ASSETS_PATH .. "necromancer\\necro_edge_right.png",
+            titleStrip    = ASSETS_PATH .. "necromancer\\necro_title_strip.png",
+            cornerSize    = 64,
+            edgeThickness = 16,
+        },
+        assets = {
+            rowBG       = ASSETS_PATH .. "necromancer\\necro_row_metal_wrapper.png",
+            indicatorBG = ASSETS_PATH .. "necromancer\\necro_indicator_box.png",
+            headerBtns  = {
+                btn1 = ASSETS_PATH .. "necromancer\\necro_header_btn_left.png",
+                btn2 = ASSETS_PATH .. "necromancer\\necro_header_btn_left.png",
+                btn3 = ASSETS_PATH .. "necromancer\\necro_header_btn_left.png",
+            },
+            icons = {
+                hunger  = ASSETS_PATH .. "necromancer\\inc2_hunger-chicken_icon.png",
+                thirst  = ASSETS_PATH .. "necromancer\\inc2_thirst_icon.png",
+                fatigue = ASSETS_PATH .. "necromancer\\inc2_fatigue_icon.png",
+            }
         },
         bar = {
-            bg      = { 0.06, 0.06, 0.06, 0.98 },
-            fill    = DEFAULT_FILL_TEX,
-            overlay = "UI-Frame-Necrolord-TitleLeft",
+            fill    = ASSETS_PATH .. "necromancer\\inc2_hunger_barfill.png",
+            bg      = nil,
+            overlay = nil,
         },
         barColors = {
             hunger  = { 0.55, 0.85, 0.30 },
-            thirst  = { 0.50, 0.20, 0.80 },
+            thirst  = { 0.80, 0.00, 0.00 },
             fatigue = { 0.18, 0.18, 0.18 },
         },
     },
@@ -325,12 +367,12 @@ local STABLE_EPSILON  =  0.002
 
 local INDICATORS = {
     stable = ASSETS_PATH .. "inc2_paused_icon.png",
-    up1    = ASSETS_PATH .. "inc2_1up-green_icon.png",
-    up2    = ASSETS_PATH .. "inc2_2up-green_icon.png",
+    up1    = ASSETS_PATH .. "inc2_1up_green_icon.png",
+    up2    = ASSETS_PATH .. "inc2_2up_green_icon.png",
     up3    = ASSETS_PATH .. "inc2_3up_green_icon.png",
-    down1  = ASSETS_PATH .. "inc2_1down-red_icon.png",
-    down2  = ASSETS_PATH .. "inc2_2down-red_icon.png",
-    down3  = ASSETS_PATH .. "inc2_3down-red_icon.png",
+    down1  = ASSETS_PATH .. "inc2_1down_red_icon.png",
+    down2  = ASSETS_PATH .. "inc2_2down_red_icon.png",
+    down3  = ASSETS_PATH .. "inc2_3down_red_icon.png",
 }
 
 local PULSE_PERIOD = 2.0
@@ -407,7 +449,11 @@ local function applyTexSlot(tex, value)
     if value == nil then
         tex:Hide()
     elseif type(value) == "string" then
-        tex:SetAtlas(value, true)
+        if string.find(value, "\\") or string.find(value, "/") or string.find(value, "%.png$") or string.find(value, "%.tga$") then
+            tex:SetTexture(value)
+        else
+            tex:SetAtlas(value, true)
+        end
         tex:Show()
     elseif type(value) == "table" then
         tex:SetColorTexture(value[1], value[2], value[3], value[4] or 1)
@@ -513,24 +559,20 @@ function ICN2:BuildHUD()
     headerFrame:SetHeight(HEADER_H)
 
     local title = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("LEFT", headerFrame, "LEFT", 4, 0)
+    title:SetPoint("LEFT", headerFrame, "LEFT", 12, 0)
     title:SetText(L["HUD_TITLE"])
 
-    local btnOptions = CreateFrame("Button", nil, headerFrame)
-    btnOptions:SetSize(20, 20)
-    btnOptions:SetPoint("RIGHT", headerFrame, "RIGHT", -2, 0)
-    local bOptTex = btnOptions:CreateTexture(nil, "ARTWORK")
-    bOptTex:SetAllPoints()
-    bOptTex:SetAtlas("glues-characterSelect-icon-notify-inProgress-hover")
-    btnOptions:SetScript("OnClick", function() ICN2:ToggleOptions() end)
+    -- Create 3 dynamic buttons
+    for i = 1, 3 do
+        local btn = CreateFrame("Button", nil, headerFrame)
+        btn.tex = btn:CreateTexture(nil, "ARTWORK")
+        btn.tex:SetAllPoints()
+        headerBtns[i] = btn
+    end
 
-    local btnDetails = CreateFrame("Button", nil, headerFrame)
-    btnDetails:SetSize(20, 20)
-    btnDetails:SetPoint("RIGHT", btnOptions, "LEFT", -2, 0)
-    local bDetTex = btnDetails:CreateTexture(nil, "ARTWORK")
-    bDetTex:SetAllPoints()
-    bDetTex:SetAtlas("loreobject-32x32")
-    btnDetails:SetScript("OnClick", function() ICN2:PrintDetails() end)
+    headerBtns[1]:SetScript("OnClick", function() ICN2:PrintDetails() end)
+    headerBtns[2]:SetScript("OnClick", function() ICN2:ToggleOptions() end)
+    headerBtns[3]:SetScript("OnClick", function() print("Placeholder Clicked!") end)
 
     -- ── Content area ──────────────────────────────────────────────────────────
     contentFrame = CreateFrame("Frame", nil, hudFrame)
@@ -602,6 +644,18 @@ function ICN2:BuildHUD()
             blockFrames[b] = { fill = fillTex }
         end
 
+        -- NEW: Row Background (Wraps Icon and Bar)
+        local rowBG = rowFrame:CreateTexture(nil, "BACKGROUND")
+        rowBG:SetPoint("TOPLEFT", icon, "TOPLEFT", -4, 4)
+        rowBG:SetPoint("BOTTOMRIGHT", barFrame, "BOTTOMRIGHT", 4, -4)
+        rowBG:Hide()
+
+        -- NEW: Indicator Background
+        local indBG = rowFrame:CreateTexture(nil, "BACKGROUND")
+        indBG:SetPoint("CENTER", glyphTex, "CENTER", 0, 0)
+        indBG:SetSize(32, 32)
+        indBG:Hide()
+
         -- ── Glyph indicator + pulse ────────────────────────────────────────────
         local glyphTex = rowFrame:CreateTexture(nil, "OVERLAY")
         glyphTex:SetSize(16, 16)
@@ -632,6 +686,8 @@ function ICN2:BuildHUD()
             barLabelRight = barLabelRight,
             blocks        = blockFrames,
             glyphTex      = glyphTex,
+            rowBG         = rowBG,
+            indBG         = indBG,
             setPulse      = function(active)
                 pulseRunning = active
                 if not active then
@@ -706,9 +762,30 @@ function ICN2:ApplyHUDTheme(themeId)
 
     applyThemePadding(theme)
 
+    -- Header Buttons
+    local hAnchor = layout.headerBtnAnchor
+    local bSize = layout.headerBtnSize
+    local bGap = layout.headerBtnGap
+    
+    -- Center the middle button (btn2), then anchor btn1 to its left and btn3 to its right
+    headerBtns[2]:SetSize(bSize, bSize)
+    headerBtns[2]:ClearAllPoints()
+    headerBtns[2]:SetPoint(hAnchor.point, headerFrame, hAnchor.relPoint, hAnchor.x, hAnchor.y)
+    applyTexSlot(headerBtns[2].tex, theme.assets.headerBtns.btn2)
+
+    headerBtns[1]:SetSize(bSize, bSize)
+    headerBtns[1]:ClearAllPoints()
+    headerBtns[1]:SetPoint("RIGHT", headerBtns[2], "LEFT", -bGap, 0)
+    applyTexSlot(headerBtns[1].tex, theme.assets.headerBtns.btn1)
+
+    headerBtns[3]:SetSize(bSize, bSize)
+    headerBtns[3]:ClearAllPoints()
+    headerBtns[3]:SetPoint("LEFT", headerBtns[2], "RIGHT", bGap, 0)
+    applyTexSlot(headerBtns[3].tex, theme.assets.headerBtns.btn3)
+
     -- Per-bar slots
     local barDef     = theme.bar or {}
-    local barBGColor = barDef.bg   or { 0.12, 0.12, 0.12, 0.9 }
+    local barBGColor = barDef.bg
     local fillTex    = barDef.fill or theme.assets.fillTex or DEFAULT_FILL_TEX
 
     for i, key in ipairs(NEED_KEYS) do
@@ -739,14 +816,17 @@ function ICN2:ApplyHUDTheme(themeId)
             data.barFrame:SetPoint(barAnchor.point, data.rowFrame, barAnchor.relPoint, barAnchor.x, barAnchor.y)
             if showBars then
                 data.barFrame:Show()
-                if type(barBGColor) == "string" then
-                    if string.find(barBGColor, "\\") then
-                        data.barBG:SetTexture(barBGColor)
+                local bgValue = (type(barBGColor) == "table" and barBGColor[key]) or barBGColor
+                if type(bgValue) == "string" then
+                    if string.find(bgValue, "\\") then
+                        data.barBG:SetTexture(bgValue)
                     else
-                        data.barBG:SetAtlas(barBGColor, true)
+                        data.barBG:SetAtlas(bgValue, true)
                     end
+                elseif type(bgValue) == "table" then
+                    data.barBG:SetColorTexture(bgValue[1], bgValue[2], bgValue[3], bgValue[4] or 1)
                 else
-                    data.barBG:SetColorTexture(barBGColor[1], barBGColor[2], barBGColor[3], barBGColor[4] or 1)
+                    data.barBG:SetColorTexture(0.12, 0.12, 0.12, 0.9)
                 end
                 if barDef.fills and barDef.fills[key] then
                     data.barFill:SetStatusBarTexture(barDef.fills[key])
@@ -782,6 +862,19 @@ function ICN2:ApplyHUDTheme(themeId)
                 data.glyphTex:SetPoint(glyphAnchor.point, data.rowFrame, glyphAnchor.relPoint, glyphAnchor.x, glyphAnchor.y)
             else
                 data.glyphTex:Hide()
+            end
+
+            -- NEW: Apply Row and Indicator BGs
+            if theme.assets.rowBG then
+                applyTexSlot(data.rowBG, theme.assets.rowBG)
+            else
+                data.rowBG:Hide()
+            end
+
+            if theme.assets.indicatorBG then
+                applyTexSlot(data.indBG, theme.assets.indicatorBG)
+            else
+                data.indBG:Hide()
             end
         end
     end
