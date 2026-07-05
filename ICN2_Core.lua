@@ -552,16 +552,43 @@ function ICN2:RestStanceTick() end -- stub for future use; called each tick afte
 
 -- ══ SECTION 7 — Racial / class ability recovery ════════════════════════════════
 
+ICN2._activeSpellRecoveries = {}
+
 local ABILITY_RECOVERY = {
-    [20577]  = function() ICN2:Eat(60)  end,   -- Cannibalize
-    [108968] = function() ICN2:Drink(40) end,  -- Symbiosis (water)
-    [204065] = function() ICN2:Eat(10); ICN2:Rest(10) end, -- Spirit Mend
-    [58984]  = function() ICN2:Rest(5)  end, -- Shadowmeld
-    [1231411] = function() ICN2:Eat(10); ICN2:Drink(10); ICN2:Rest(10) end, -- Recuperate
+    [20577]   = { duration = 10, hunger = 75 },                             -- Cannibalize
+    [108968]  = { duration = 10, thirst = 40 },                             -- Symbiosis (water)
+    [204065]  = { duration = 10, hunger = 10, fatigue = 10 },               -- Spirit Mend
+    [58984]   = { duration = 10, fatigue = 15 },                            -- Shadowmeld
+    [1231411] = { duration = 10, hunger = 15, thirst = 15, fatigue = 15 },  -- Recuperate
 }
 
 function ICN2:HandleAbilityRecovery(spellID)
-    if ABILITY_RECOVERY[spellID] then ABILITY_RECOVERY[spellID]() end
+    local spellData = ABILITY_RECOVERY[spellID]
+    if spellData then
+        ICN2._activeSpellRecoveries[spellID] = {
+            ticksLeft   = spellData.duration,
+            hungerTick  = (spellData.hunger or 0) / spellData.duration,
+            thirstTick  = (spellData.thirst or 0) / spellData.duration,
+            fatigueTick = (spellData.fatigue or 0) / spellData.duration,
+        }
+    end
+end
+
+function ICN2:_ApplySpellRecovery(rates)
+    for _, data in pairs(ICN2._activeSpellRecoveries) do
+        rates.hunger  = rates.hunger + data.hungerTick
+        rates.thirst  = rates.thirst + data.thirstTick
+        rates.fatigue = rates.fatigue + data.fatigueTick
+    end
+end
+
+function ICN2:SpellRecoveryTick()
+    for spellID, data in pairs(ICN2._activeSpellRecoveries) do
+        data.ticksLeft = data.ticksLeft - 1
+        if data.ticksLeft <= 0 then
+            ICN2._activeSpellRecoveries[spellID] = nil
+        end
+    end
 end
 
 -- ══ SECTION 8 — /icn2 details ══════════════════════════════════════════════════

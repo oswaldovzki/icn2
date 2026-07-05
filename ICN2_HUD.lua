@@ -145,11 +145,7 @@ ICN2.HUD_THEMES = {
         },
         bar = {
             overlay = ASSETS_PATH .. "inc2_hunger_overlay-bar.png",
-            bg      = {
-                hunger  = ASSETS_PATH .. "icn2-bg-hunger-bar.png",
-                thirst  = ASSETS_PATH .. "icn2-bg-thirst-bar.png",
-                fatigue = ASSETS_PATH .. "icn2-bg-sleep-bar.png",
-            },
+            bg      = ASSETS_PATH .. "icn2-bg-hunger-bar.png",
             fills   = {
                 hunger  = ASSETS_PATH .. "inc2_hunger_barfill.png",
                 thirst  = ASSETS_PATH .. "inc2_thirst_barfill.png",
@@ -367,12 +363,12 @@ local STABLE_EPSILON  =  0.002
 
 local INDICATORS = {
     stable = ASSETS_PATH .. "inc2_paused_icon.png",
-    up1    = ASSETS_PATH .. "inc2_1up_green_icon.png",
-    up2    = ASSETS_PATH .. "inc2_2up_green_icon.png",
+    up1    = ASSETS_PATH .. "inc2_1up-green_icon.png",
+    up2    = ASSETS_PATH .. "inc2_2up-green_icon.png",
     up3    = ASSETS_PATH .. "inc2_3up_green_icon.png",
-    down1  = ASSETS_PATH .. "inc2_1down_red_icon.png",
-    down2  = ASSETS_PATH .. "inc2_2down_red_icon.png",
-    down3  = ASSETS_PATH .. "inc2_3down_red_icon.png",
+    down1  = ASSETS_PATH .. "inc2_1down-red_icon.png",
+    down2  = ASSETS_PATH .. "inc2_2down-red_icon.png",
+    down3  = ASSETS_PATH .. "inc2_3down-red_icon.png",
 }
 
 local PULSE_PERIOD = 2.0
@@ -572,7 +568,17 @@ function ICN2:BuildHUD()
 
     headerBtns[1]:SetScript("OnClick", function() ICN2:PrintDetails() end)
     headerBtns[2]:SetScript("OnClick", function() ICN2:ToggleOptions() end)
-    headerBtns[3]:SetScript("OnClick", function() print("Placeholder Clicked!") end)
+    headerBtns[3]:SetScript("OnClick", function() 
+    ICN2:HandleAbilityRecovery(1231411) 
+    end)
+    headerBtns[3]:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetSpellByID(1231411)
+        GameTooltip:Show()
+    end)
+    headerBtns[3]:SetScript("OnLeave", function() 
+        GameTooltip:Hide() 
+    end)
 
     -- ── Content area ──────────────────────────────────────────────────────────
     contentFrame = CreateFrame("Frame", nil, hudFrame)
@@ -785,7 +791,7 @@ function ICN2:ApplyHUDTheme(themeId)
 
     -- Per-bar slots
     local barDef     = theme.bar or {}
-    local barBGColor = barDef.bg
+    local barBGColor = barDef.bg   or { 0.12, 0.12, 0.12, 0.9 }
     local fillTex    = barDef.fill or theme.assets.fillTex or DEFAULT_FILL_TEX
 
     for i, key in ipairs(NEED_KEYS) do
@@ -816,17 +822,14 @@ function ICN2:ApplyHUDTheme(themeId)
             data.barFrame:SetPoint(barAnchor.point, data.rowFrame, barAnchor.relPoint, barAnchor.x, barAnchor.y)
             if showBars then
                 data.barFrame:Show()
-                local bgValue = (type(barBGColor) == "table" and barBGColor[key]) or barBGColor
-                if type(bgValue) == "string" then
-                    if string.find(bgValue, "\\") then
-                        data.barBG:SetTexture(bgValue)
+                if type(barBGColor) == "string" then
+                    if string.find(barBGColor, "\\") then
+                        data.barBG:SetTexture(barBGColor)
                     else
-                        data.barBG:SetAtlas(bgValue, true)
+                        data.barBG:SetAtlas(barBGColor, true)
                     end
-                elseif type(bgValue) == "table" then
-                    data.barBG:SetColorTexture(bgValue[1], bgValue[2], bgValue[3], bgValue[4] or 1)
                 else
-                    data.barBG:SetColorTexture(0.12, 0.12, 0.12, 0.9)
+                    data.barBG:SetColorTexture(barBGColor[1], barBGColor[2], barBGColor[3], barBGColor[4] or 1)
                 end
                 if barDef.fills and barDef.fills[key] then
                     data.barFill:SetStatusBarTexture(barDef.fills[key])
