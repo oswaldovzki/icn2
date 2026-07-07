@@ -418,6 +418,7 @@ function ICN2:GetCurrentRates()
     self:_ApplyCrossNeedModifiers(rates)
     self:_ApplyArmorModifier(rates)
     self:_ApplyFoodDrinkRecovery(rates)
+    self:_ApplySpellRecovery(rates)
     self:_ApplyFatigueRecovery(rates)
     self:_ApplyWellFedPause(rates)
     return rates
@@ -543,6 +544,7 @@ frame:SetScript("OnUpdate", function(self, dt) -- accumulates elapsed time and t
         ICN2:UpdateState()
         ICN2:FoodDrinkTick()
         ICN2:RestStanceTick()
+        ICN2:SpellRecoveryTick()
         tick()
     end
 end)
@@ -572,6 +574,22 @@ function ICN2:HandleAbilityRecovery(spellID)
             fatigueTick = (spellData.fatigue or 0) / spellData.duration,
         }
     end
+end
+
+function ICN2:CastRecoverySpell(spellID)
+    if not spellID then return false end
+
+    if C_Spell and C_Spell.CastSpell then
+        local ok = pcall(C_Spell.CastSpell, spellID)
+        if ok then return true end
+    end
+
+    if CastSpellByID then
+        local ok = pcall(CastSpellByID, spellID)
+        if ok then return true end
+    end
+
+    return false
 end
 
 function ICN2:_ApplySpellRecovery(rates)

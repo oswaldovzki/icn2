@@ -35,9 +35,9 @@ local ASSETS_PATH = "Interface\\AddOns\\ICN2\\assets\\"
 
 -- ── Default need icons ────────────────────────────────────────────────────────
 local NEED_ICONS = {
-    hunger  = ASSETS_PATH .. "inc2_hunger-chicken_icon.png",
-    thirst  = ASSETS_PATH .. "inc2_thirst_icon.png",
-    fatigue = ASSETS_PATH .. "inc2_fatigue_icon.png",
+    hunger  = ASSETS_PATH .. "inc2_hunger_chicken.png",
+    thirst  = ASSETS_PATH .. "inc2_thirst.png",
+    fatigue = ASSETS_PATH .. "inc2_fatigue.png",
 }
 
 -- ── Fallback bar colors ───────────────────────────────────────────────────────
@@ -103,7 +103,6 @@ ICN2.THEME_BASE = {
         barAnchor   = { point = "LEFT", relPoint = "LEFT", x = ICON_SIZE + 4, y = 0 },
         glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 },
         
-        -- NEW: Header button layout
         headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = 0, y = -4 },
         headerBtnSize   = 24,
         headerBtnGap    = 4,
@@ -111,14 +110,12 @@ ICN2.THEME_BASE = {
     assets = {
         fillTex = DEFAULT_FILL_TEX,
         icons   = NEED_ICONS,
-        
-        -- NEW: Dynamic texture slots
         rowBG       = nil,
         indicatorBG = nil,
         headerBtns  = {
-            btn1 = "loreobject-32x32",
-            btn2 = "glues-characterSelect-icon-notify-inProgress-hover",
-            btn3 = "Interface\\Buttons\\UI-GroupLoot-Pass-Up",
+            btn1 = ASSETS_PATH .. "inc2_details.png",
+            btn2 = ASSETS_PATH .. "inc2_settings.png",
+            btn3 = ASSETS_PATH .. "inc2_quick-rest.png",
         }
     },
     barColors = BLOCK_COLORS,
@@ -144,12 +141,12 @@ ICN2.HUD_THEMES = {
             cornerSize    = 6, edgeThickness = 2,
         },
         bar = {
-            overlay = ASSETS_PATH .. "inc2_hunger_overlay-bar.png",
-            bg      = ASSETS_PATH .. "icn2-bg-hunger-bar.png",
+            overlay = ASSETS_PATH .. "inc2_bar_overlay.png",
+            bg      = ASSETS_PATH .. "inc2_bg_hunger_bar.png",
             fills   = {
-                hunger  = ASSETS_PATH .. "inc2_hunger_barfill.png",
-                thirst  = ASSETS_PATH .. "inc2_thirst_barfill.png",
-                fatigue = ASSETS_PATH .. "inc2_sleep_barfill.png",
+                hunger  = ASSETS_PATH .. "inc2_fill_hunger_bar.png",
+                thirst  = ASSETS_PATH .. "inc2_fill_thirst_bar.png",
+                fatigue = ASSETS_PATH .. "inc2_fill_fatigue_bar.png",
             },
         },
         barColors = nil,
@@ -362,13 +359,13 @@ local IND_FASTER_DOWN = -0.100
 local STABLE_EPSILON  =  0.002
 
 local INDICATORS = {
-    stable = ASSETS_PATH .. "inc2_paused_icon.png",
-    up1    = ASSETS_PATH .. "inc2_1up-green_icon.png",
-    up2    = ASSETS_PATH .. "inc2_2up-green_icon.png",
-    up3    = ASSETS_PATH .. "inc2_3up_green_icon.png",
-    down1  = ASSETS_PATH .. "inc2_1down-red_icon.png",
-    down2  = ASSETS_PATH .. "inc2_2down-red_icon.png",
-    down3  = ASSETS_PATH .. "inc2_3down-red_icon.png",
+    stable = ASSETS_PATH .. "inc2_paused.png",
+    up1    = ASSETS_PATH .. "inc2_up_1.png",
+    up2    = ASSETS_PATH .. "inc2_up_2.png",
+    up3    = ASSETS_PATH .. "inc2_up_3.png",
+    down1  = ASSETS_PATH .. "inc2_down_1.png",
+    down2  = ASSETS_PATH .. "inc2_down_2.png",
+    down3  = ASSETS_PATH .. "inc2_down_3.png",
 }
 
 local PULSE_PERIOD = 2.0
@@ -559,25 +556,42 @@ function ICN2:BuildHUD()
     title:SetText(L["HUD_TITLE"])
 
     -- Create 3 dynamic buttons
+    local recoverySpellID = 1231411
+    local recoverySpellName = GetSpellInfo(recoverySpellID)
+
     for i = 1, 3 do
-        local btn = CreateFrame("Button", nil, headerFrame)
+        local btn = (i == 3) and CreateFrame("Button", nil, headerFrame, "SecureActionButtonTemplate") or CreateFrame("Button", nil, headerFrame)
+        btn:SetSize(16, 16)
+        btn:EnableMouse(true)
+        btn:RegisterForClicks("LeftButtonUp")
         btn.tex = btn:CreateTexture(nil, "ARTWORK")
         btn.tex:SetAllPoints()
+        btn.tex:SetColorTexture(0.75, 0.75, 0.75, 0.95)
         headerBtns[i] = btn
     end
 
+    headerBtns[1]:SetPoint("RIGHT", headerFrame, "RIGHT", -6, 0)
+    headerBtns[2]:SetPoint("RIGHT", headerBtns[1], "LEFT", -4, 0)
+    headerBtns[3]:SetPoint("RIGHT", headerBtns[2], "LEFT", -4, 0)
+
+    headerBtns[3]:SetAttribute("type", "spell")
+    headerBtns[3]:SetAttribute("spell", recoverySpellName or recoverySpellID)
+
     headerBtns[1]:SetScript("OnClick", function() ICN2:PrintDetails() end)
     headerBtns[2]:SetScript("OnClick", function() ICN2:ToggleOptions() end)
-    headerBtns[3]:SetScript("OnClick", function() 
-    ICN2:HandleAbilityRecovery(1231411) 
+    headerBtns[3]:SetScript("OnClick", function()
+        if not ICN2:CastRecoverySpell(recoverySpellID) then
+            ICN2:HandleAbilityRecovery(recoverySpellID)
+        end
+        ICN2:UpdateHUD()
     end)
     headerBtns[3]:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetSpellByID(1231411)
         GameTooltip:Show()
     end)
-    headerBtns[3]:SetScript("OnLeave", function() 
-        GameTooltip:Hide() 
+    headerBtns[3]:SetScript("OnLeave", function()
+        GameTooltip:Hide()
     end)
 
     -- ── Content area ──────────────────────────────────────────────────────────
@@ -656,17 +670,17 @@ function ICN2:BuildHUD()
         rowBG:SetPoint("BOTTOMRIGHT", barFrame, "BOTTOMRIGHT", 4, -4)
         rowBG:Hide()
 
-        -- NEW: Indicator Background
-        local indBG = rowFrame:CreateTexture(nil, "BACKGROUND")
-        indBG:SetPoint("CENTER", glyphTex, "CENTER", 0, 0)
-        indBG:SetSize(32, 32)
-        indBG:Hide()
-
         -- ── Glyph indicator + pulse ────────────────────────────────────────────
         local glyphTex = rowFrame:CreateTexture(nil, "OVERLAY")
         glyphTex:SetSize(16, 16)
         glyphTex:SetPoint("RIGHT", rowFrame, "RIGHT", -2, 0)
         glyphTex:SetAlpha(1.0)
+
+        -- NEW: Indicator Background
+        local indBG = rowFrame:CreateTexture(nil, "BACKGROUND")
+        indBG:SetPoint("CENTER", glyphTex, "CENTER", 0, 0)
+        indBG:SetSize(32, 32)
+        indBG:Hide()
 
         local pulseFrame   = CreateFrame("Frame", nil, rowFrame)
         local pulseElapsed = 0
