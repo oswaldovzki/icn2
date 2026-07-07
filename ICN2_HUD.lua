@@ -49,6 +49,16 @@ local BLOCK_COLORS = {
 
 local DEFAULT_FILL_TEX = "Interface\\TargetingFrame\\UI-StatusBar"
 
+local DEFAULT_INDICATORS = {
+    stable = ASSETS_PATH .. "inc2_paused.png",
+    up1    = ASSETS_PATH .. "inc2_up_1.png",
+    up2    = ASSETS_PATH .. "inc2_up_2.png",
+    up3    = ASSETS_PATH .. "inc2_up_3.png",
+    down1  = ASSETS_PATH .. "inc2_down_1.png",
+    down2  = ASSETS_PATH .. "inc2_down_2.png",
+    down3  = ASSETS_PATH .. "inc2_down_3.png",
+}
+
 local function MergeTheme(base, override)
     local result = {}
     for k, v in pairs(base) do
@@ -110,6 +120,7 @@ ICN2.THEME_BASE = {
     assets = {
         fillTex = DEFAULT_FILL_TEX,
         icons   = NEED_ICONS,
+        indicators = DEFAULT_INDICATORS,
         rowBG       = nil,
         indicatorBG = nil,
         headerBtns  = {
@@ -358,21 +369,28 @@ local IND_FAST_DOWN   = -0.050
 local IND_FASTER_DOWN = -0.100
 local STABLE_EPSILON  =  0.002
 
-local INDICATORS = {
-    stable = ASSETS_PATH .. "inc2_paused.png",
-    up1    = ASSETS_PATH .. "inc2_up_1.png",
-    up2    = ASSETS_PATH .. "inc2_up_2.png",
-    up3    = ASSETS_PATH .. "inc2_up_3.png",
-    down1  = ASSETS_PATH .. "inc2_down_1.png",
-    down2  = ASSETS_PATH .. "inc2_down_2.png",
-    down3  = ASSETS_PATH .. "inc2_down_3.png",
-}
+local INDICATORS = DEFAULT_INDICATORS
 
 local PULSE_PERIOD = 2.0
 local PULSE_MIN    = 0.25
 local PULSE_MAX    = 1.0
 
-local function shouldPulse(assetPath)  return assetPath ~= INDICATORS.stable  end
+local function shouldPulse(assetPath, indicators)
+    local stableAsset = indicators and indicators.stable or INDICATORS.stable
+    return assetPath ~= stableAsset
+end
+
+local function getIndicatorAsset(rate, indicators)
+    local assets = indicators or INDICATORS
+    if math.abs(rate) <= STABLE_EPSILON then return assets.stable, 1, 1, 1
+    elseif rate >= IND_FASTER_UP        then return assets.up3,   1, 1, 1
+    elseif rate >= IND_FAST_UP          then return assets.up2,   1, 1, 1
+    elseif rate >  0                    then return assets.up1,   1, 1, 1
+    elseif rate <= IND_FASTER_DOWN      then return assets.down3, 1, 1, 1
+    elseif rate <= IND_FAST_DOWN        then return assets.down2, 1, 1, 1
+    else                                     return assets.down1, 1, 1, 1
+    end
+end
 
 local function getSelectedPalette()
     local paletteId = ICN2DB and ICN2DB.settings and ICN2DB.settings.colorPalette or "Default"
@@ -399,17 +417,6 @@ local function getNeedColor(key, val) -- returns r,g,b in 0..1 range
         local theme = getTheme()
         fc = (theme.barColors and theme.barColors[key]) or BLOCK_COLORS[key]
         return fc[1], fc[2], fc[3]
-    end
-end
-
-local function getIndicatorAsset(rate)
-    if math.abs(rate) <= STABLE_EPSILON then return INDICATORS.stable, 1, 1, 1
-    elseif rate >= IND_FASTER_UP        then return INDICATORS.up3,   1, 1, 1
-    elseif rate >= IND_FAST_UP          then return INDICATORS.up2,   1, 1, 1
-    elseif rate >  0                    then return INDICATORS.up1,   1, 1, 1
-    elseif rate <= IND_FASTER_DOWN      then return INDICATORS.down3, 1, 1, 1
-    elseif rate <= IND_FAST_DOWN        then return INDICATORS.down2, 1, 1, 1
-    else                                     return INDICATORS.down1, 1, 1, 1
     end
 end
 
@@ -557,7 +564,17 @@ function ICN2:BuildHUD()
 
     -- Create 3 dynamic buttons
     local recoverySpellID = 1231411
-    local recoverySpellName = GetSpellInfo(recoverySpellID)
+    local recoverySpellName
+    local spellLookup = rawget(_G, "GetSpellInfo")
+
+    if type(spellLookup) == "function" then
+        recoverySpellName = spellLookup(recoverySpellID)
+    elseif rawget(_G, "C_Spell") and type(rawget(_G.C_Spell, "GetSpellInfo")) == "function" then
+        local spellInfo = rawget(_G.C_Spell, "GetSpellInfo")(recoverySpellID)
+        recoverySpellName = type(spellInfo) == "table" and (spellInfo.name or spellInfo[1]) or spellInfo
+    end
+
+    recoverySpellName = recoverySpellName or recoverySpellID
 
     for i = 1, 3 do
         local btn = (i == 3) and CreateFrame("Button", nil, headerFrame, "SecureActionButtonTemplate") or CreateFrame("Button", nil, headerFrame)
@@ -952,6 +969,9 @@ function ICN2:UpdateHUD()
     local mode      = getTheme().mode
     local labelMode = ICN2DB.settings.barLabelMode or "percentage"
 
+    local theme, rawTheme = getMergedHUDTheme(getTheme().id)
+    local indicators = (theme.assets and theme.assets.indicators) or INDICATORS
+
     for _, key in ipairs(NEED_KEYS) do
         local data = bars[key]
         if data then
@@ -996,10 +1016,10 @@ function ICN2:UpdateHUD()
                 end
             end
 
-            local assetPath, ir, ig, ib = getIndicatorAsset(rates[key] or 0)
+            local assetPath, ir, ig, ib = getIndicatorAsset(rates[key] or 0, indicators)
             data.glyphTex:SetTexture(assetPath)
             data.glyphTex:SetVertexColor(ir, ig, ib)
-            data.setPulse(shouldPulse(assetPath))
+            data.setPulse(shouldPulse(assetPath, indicators))
         end
     end
 end
