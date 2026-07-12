@@ -6,9 +6,22 @@
 - This behavior has been reported to Blizzard; it is unclear whether it is intended.
 - Workaround: Manually replenish the "Thirst" state via the ICN2 settings menu.
 
+## v2.7.0
+
+### 
+
+- 
+
+## v2.6.0
+
+### Localization Updates
+
+- Updated some stgs with new/improved information
+- Added more translations to other languages (PT-BR, ES-MXrin, FR-FR, DE-DE)
+
 ## v2.5.0
 
-### UI Updates
+### HUD Updates
 
 - Adjusted available themes.
 - Set "Clean" as the new default.

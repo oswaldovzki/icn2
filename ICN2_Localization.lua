@@ -26,9 +26,9 @@ L["MSG_COMMANDS"]        = "Commands: |cFFFFFF00/icn2|r [show|eat|drink|rest|res
 
 -- Status / Details output
 L["DETAILS_HEADER"]           = "|cFFFFFF00Details|r — "
-L["DETAILS_HUNGER_LINE"]      = "|cFF00FF00Hunger|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/s"
-L["DETAILS_THIRST_LINE"]      = "|cFF4499FFThirst|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/s"
-L["DETAILS_FATIGUE_LINE"]     = "|cFFFFDD00Fatigue|r %.1f%%  (%.1f / %d pts)  net %+.4f pts/s  (recovery %+.4f pts/s [%s])"
+L["DETAILS_HUNGER_LINE"]      = "|cFF00FF00Hunger|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/min"
+L["DETAILS_THIRST_LINE"]      = "|cFF4499FFThirst|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/min"
+L["DETAILS_FATIGUE_LINE"]     = "|cFFFFDD00Fatigue|r %.1f%%  (%.1f / %d pts)  net %+.4f pts/min  (recovery %+.4f pts/min [%s])"
 L["DETAILS_ACTIVE_MOD"]       = "|cFFAAAAAAActive modifiers:|r"
 L["DETAILS_NO_MOD"]           = "  |cFF888888None (walking/idle outdoors)|r"
 L["DETAILS_ARMOR"]            = "  |cFFCCCCCCArmor:%s (F×%.2f)|r"
@@ -225,6 +225,23 @@ if GetLocale() == "ptBR" then
     L["SRC_HOUSING"]     = "moradia"
     L["SRC_SITTING"]     = "sentado"
     L["SRC_EAT_DRINK"]   = "comendo/bebendo"
+
+    L["DETAILS_HEADER"]       = "|cFFFFFF00Detalhes|r — "
+    L["DETAILS_HUNGER_LINE"]  = "|cFF00FF00Fome|r  %.1f%%  (%.1f / %d pts)  líquido %+.4f pts/min"
+    L["DETAILS_THIRST_LINE"]  = "|cFF4499FFSede|r  %.1f%%  (%.1f / %d pts)  líquido %+.4f pts/min"
+    L["DETAILS_FATIGUE_LINE"] = "|cFFFFDD00Fadiga|r %.1f%%  (%.1f / %d pts)  líquido %+.4f pts/min  (recuperação %+.4f pts/min [%s])"
+    L["DETAILS_ARMOR"]        = "  |cFFCCCCCCArmadura:%s (F×%.2f)|r"
+    L["DETAILS_FAT_RECOVERY"] = "  |cFFCCCCCCRecuperação de fadiga: %s — fontes: %s|r"
+    L["DETAILS_CROSS_NEED"]   = "  |cFFFF9900Necessidade cruzada: %s|r"
+    L["SIT_RACE"]             = "Raça:%s (H×%.2f T×%.2f F×%.2f)"
+    L["SIT_CLASS"]            = "Classe:%s (H×%.2f T×%.2f F×%.2f)"
+    L["PRESET_CUSTOM"]        = "Customizado — H×%.2f  T×%.2f  F×%.2f"
+    L["PRESET_NAMED"]         = "%s (global ×%.2f — exibição do controle %d na escala 0–%d)"
+    L["TOOLTIP_HINT"]         = "|cFFAAAAAA/icn2 show|r"
+    L["OPT_SEC_THEME"]        = "Tema:"
+    L["OPT_SEC_LABEL_MODE"]   = "Rótulo da barra:"
+    L["BIAS_LABEL"]           = "%s: %d  (×%.2f vs base Média)"
+    L["BIAS_LABEL_READONLY"]  = "%s: %d  (×%.2f vs base Média)  |cFF888888(predefinição)|r"
 end
 
 -- ── Spanish (esES / esMX) ─────────────────────────────────────────────────────
@@ -320,6 +337,23 @@ if GetLocale() == "esES" or GetLocale() == "esMX" then
     L["SRC_HOUSING"]     = "vivienda"
     L["SRC_SITTING"]     = "sentado"
     L["SRC_EAT_DRINK"]   = "comiendo/bebiendo"
+
+    L["DETAILS_HEADER"]       = "|cFFFFFF00Detalles|r — "
+    L["DETAILS_HUNGER_LINE"]  = "|cFF00FF00Hambre|r  %.1f%%  (%.1f / %d pts)  neto %+.4f pts/min"
+    L["DETAILS_THIRST_LINE"]  = "|cFF4499FFSed|r  %.1f%%  (%.1f / %d pts)  neto %+.4f pts/min"
+    L["DETAILS_FATIGUE_LINE"] = "|cFFFFDD00Fatiga|r %.1f%%  (%.1f / %d pts)  neto %+.4f pts/min  (recuperación %+.4f pts/min [%s])"
+    L["DETAILS_ARMOR"]        = "  |cFFCCCCCCArmadura:%s (F×%.2f)|r"
+    L["DETAILS_FAT_RECOVERY"] = "  |cFFCCCCCCRecuperación de fatiga: %s — fuentes: %s|r"
+    L["DETAILS_CROSS_NEED"]   = "  |cFFFF9900Necesidad cruzada: %s|r"
+    L["SIT_RACE"]             = "Raza:%s (H×%.2f T×%.2f F×%.2f)"
+    L["SIT_CLASS"]            = "Clase:%s (H×%.2f T×%.2f F×%.2f)"
+    L["PRESET_CUSTOM"]        = "Personalizado — H×%.2f  T×%.2f  F×%.2f"
+    L["PRESET_NAMED"]         = "%s (global ×%.2f — barra %d en escala 0–%d)"
+    L["TOOLTIP_HINT"]         = "|cFFAAAAAA/icn2 show|r"
+    L["OPT_SEC_THEME"]        = "Tema:"
+    L["OPT_SEC_LABEL_MODE"]   = "Etiqueta de barra:"
+    L["BIAS_LABEL"]           = "%s: %d  (×%.2f vs base Media)"
+    L["BIAS_LABEL_READONLY"]  = "%s: %d  (×%.2f vs base Media)  |cFF888888(preajuste)|r"
 end
 
 -- ── French (frFR) ─────────────────────────────────────────────────────────────
@@ -415,6 +449,23 @@ if GetLocale() == "frFR" then
     L["SRC_HOUSING"]     = "logement"
     L["SRC_SITTING"]     = "assis"
     L["SRC_EAT_DRINK"]   = "manger/boire"
+
+    L["DETAILS_HEADER"]       = "|cFFFFFF00Détails|r — "
+    L["DETAILS_HUNGER_LINE"]  = "|cFF00FF00Faim|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/min"
+    L["DETAILS_THIRST_LINE"]  = "|cFF4499FFSoif|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/min"
+    L["DETAILS_FATIGUE_LINE"] = "|cFFFFDD00Fatigue|r %.1f%%  (%.1f / %d pts)  net %+.4f pts/min  (récupération %+.4f pts/min [%s])"
+    L["DETAILS_ARMOR"]        = "  |cFFCCCCCCArmure : %s (F×%.2f)|r"
+    L["DETAILS_FAT_RECOVERY"] = "  |cFFCCCCCCRécupération de fatigue : %s — sources : %s|r"
+    L["DETAILS_CROSS_NEED"]   = "  |cFFFF9900Besoin croisé : %s|r"
+    L["SIT_RACE"]             = "Race : %s (H×%.2f T×%.2f F×%.2f)"
+    L["SIT_CLASS"]            = "Classe : %s (H×%.2f T×%.2f F×%.2f)"
+    L["PRESET_CUSTOM"]        = "Personnalisé — H×%.2f  T×%.2f  F×%.2f"
+    L["PRESET_NAMED"]         = "%s (global ×%.2f — curseur %d sur échelle 0–%d)"
+    L["TOOLTIP_HINT"]         = "|cFFAAAAAA/icn2 show|r"
+    L["OPT_SEC_THEME"]        = "Thème :"
+    L["OPT_SEC_LABEL_MODE"]   = "Texte de la barre :"
+    L["BIAS_LABEL"]           = "%s : %d  (×%.2f vs base Moyenne)"
+    L["BIAS_LABEL_READONLY"]  = "%s : %d  (×%.2f vs base Moyenne)  |cFF888888(préréglage)|r"
 end
 
 -- ── German (deDE) ─────────────────────────────────────────────────────────────
@@ -510,4 +561,21 @@ if GetLocale() == "deDE" then
     L["SRC_HOUSING"]     = "Unterkunft"
     L["SRC_SITTING"]     = "sitzend"
     L["SRC_EAT_DRINK"]   = "essen/trinken"
+
+    L["DETAILS_HEADER"]       = "|cFFFFFF00Details|r — "
+    L["DETAILS_HUNGER_LINE"]  = "|cFF00FF00Hunger|r  %.1f%%  (%.1f / %d Pkt)  netto %+.4f Pkt/Min"
+    L["DETAILS_THIRST_LINE"]  = "|cFF4499FFDurst|r  %.1f%%  (%.1f / %d Pkt)  netto %+.4f Pkt/Min"
+    L["DETAILS_FATIGUE_LINE"] = "|cFFFFDD00Erschöpfung|r %.1f%%  (%.1f / %d Pkt)  netto %+.4f Pkt/Min  (Erholung %+.4f Pkt/Min [%s])"
+    L["DETAILS_ARMOR"]        = "  |cFFCCCCCCRüstung:%s (F×%.2f)|r"
+    L["DETAILS_FAT_RECOVERY"] = "  |cFFCCCCCCErschöpfungserholung: %s — Quellen: %s|r"
+    L["DETAILS_CROSS_NEED"]   = "  |cFFFF9900Kreuzbedürfnis: %s|r"
+    L["SIT_RACE"]             = "Volk:%s (H×%.2f T×%.2f F×%.2f)"
+    L["SIT_CLASS"]            = "Klasse:%s (H×%.2f T×%.2f F×%.2f)"
+    L["PRESET_CUSTOM"]        = "Benutzerdefiniert — H×%.2f  T×%.2f  F×%.2f"
+    L["PRESET_NAMED"]         = "%s (global ×%.2f — Regleranzeige %d auf 0–%d Skala)"
+    L["TOOLTIP_HINT"]         = "|cFFAAAAAA/icn2 show|r"
+    L["OPT_SEC_THEME"]        = "Design:"
+    L["OPT_SEC_LABEL_MODE"]   = "Balkenbeschriftung:"
+    L["BIAS_LABEL"]           = "%s: %d  (×%.2f vs Mittlere Basis)"
+    L["BIAS_LABEL_READONLY"]  = "%s: %d  (×%.2f vs Mittlere Basis)  |cFF888888(Vorgabe)|r"
 end

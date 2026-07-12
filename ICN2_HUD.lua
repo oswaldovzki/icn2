@@ -723,8 +723,23 @@ end
 -- ══  SECTION 7 — Update Loop  ══════════════════════════════════════════════════
 function ICN2:UpdateHUD()
     if not hudFrame then return end
-    if not ICN2DB.settings.hudEnabled then hudFrame:Hide(); return end
-    hudFrame:Show()
+    local inCombat = (InCombatLockdown and InCombatLockdown()) and true or false
+
+    if not ICN2DB.settings.hudEnabled then
+        if not inCombat then hudFrame:Hide() end
+        -- If we're in combat, avoid calling protected methods; defer until combat ends
+        if inCombat then ICN2._hudPendingShow = false end
+        return
+    end
+
+    -- Only call :Show() when not in combat to avoid ADDON_ACTION_BLOCKED errors.
+    if inCombat then
+        ICN2._hudPendingShow = true
+        return
+    else
+        ICN2._hudPendingShow = nil
+        hudFrame:Show()
+    end
 
     local theme = getTheme()
     local values = { hunger = ICN2:GetNeedPercent("hunger"), thirst = ICN2:GetNeedPercent("thirst"), fatigue = ICN2:GetNeedPercent("fatigue") }

@@ -521,6 +521,14 @@ frame:SetScript("OnEvent", function(self, event, ...)
     elseif event == "PLAYER_REGEN_ENABLED" then
         ICN2.State.inCombat = false
         ICN2:OnCombatBreakFoodDrink()
+        -- If HUD show was deferred during combat, show it now (safe to call)
+        if ICN2._hudPendingShow ~= nil then
+            local hud = _G and _G["ICN2HUDFrame"]
+            if hud and ICN2._hudPendingShow then
+                hud:Show()
+            end
+            ICN2._hudPendingShow = nil
+        end
 
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
         local slot = ...
@@ -715,12 +723,16 @@ function ICN2:PrintDetails() -- prints detailed information about the current ra
     end
     print(P .. " " .. L["DETAILS_HEADER"] .. presetLine)
     print(sep)
+    local function ceil2(v)
+        if not v or type(v) ~= "number" then return v end
+        return math.ceil(v * 100) / 100
+    end
     print(string.format(P .. " " .. L["DETAILS_HUNGER_LINE"],
-        ICN2:GetNeedPercent("hunger"),  ICN2DB.hunger,  ICN2:GetMaxValue("hunger"),  rates.hunger))
+        ICN2:GetNeedPercent("hunger"),  ICN2DB.hunger,  ICN2:GetMaxValue("hunger"),  ceil2(rates.hunger * 60)))
     print(string.format(P .. " " .. L["DETAILS_THIRST_LINE"],
-        ICN2:GetNeedPercent("thirst"),  ICN2DB.thirst,  ICN2:GetMaxValue("thirst"),  rates.thirst))
+        ICN2:GetNeedPercent("thirst"),  ICN2DB.thirst,  ICN2:GetMaxValue("thirst"),  ceil2(rates.thirst * 60)))
     print(string.format(P .. " " .. L["DETAILS_FATIGUE_LINE"],
-        ICN2:GetNeedPercent("fatigue"), ICN2DB.fatigue, ICN2:GetMaxValue("fatigue"), rates.fatigue, fatigueGain, ICN2._fatigueRecoveryTier))
+        ICN2:GetNeedPercent("fatigue"), ICN2DB.fatigue, ICN2:GetMaxValue("fatigue"), ceil2(rates.fatigue * 60), fatigueGain, ICN2._fatigueRecoveryTier))
     print(sep)
     print(P .. " " .. L["DETAILS_ACTIVE_MOD"])
     if #labels == 0 then
