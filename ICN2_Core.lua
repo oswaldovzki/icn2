@@ -576,17 +576,22 @@ function ICN2:HandleAbilityRecovery(spellID)
     end
 end
 
-function ICN2:CastRecoverySpell(spellID)
-    if not spellID then return false end
+function ICN2:CastRecoverySpell(spellID, spellName)
+    if not spellID and not spellName then return false end
 
-    if C_Spell and C_Spell.CastSpell then
-        local ok = pcall(C_Spell.CastSpell, spellID)
-        if ok then return true end
+    if C_Spell and C_Spell.CastSpell and spellID then
+        local ok, result = pcall(C_Spell.CastSpell, spellID)
+        if ok and result ~= false then return true end
     end
 
-    if CastSpellByID then
-        local ok = pcall(CastSpellByID, spellID)
-        if ok then return true end
+    if CastSpellByID and spellID then
+        local ok, result = pcall(CastSpellByID, spellID)
+        if ok and result ~= false then return true end
+    end
+
+    if spellName and CastSpellByName then
+        local ok, result = pcall(CastSpellByName, spellName)
+        if ok and result ~= false then return true end
     end
 
     return false

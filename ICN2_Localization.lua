@@ -73,7 +73,7 @@ L["TOOLTIP_TITLE"]   = "|cFFFF6600ICN2 - Character Needs|r"
 L["TOOLTIP_HUNGER"]  = "Hunger:  %.1f%%"
 L["TOOLTIP_THIRST"]  = "Thirst:  %.1f%%"
 L["TOOLTIP_FATIGUE"] = "Fatigue: %.1f%%"
-L["TOOLTIP_HINT"]    = "|cFFAAAAAA/icn2 details|r"
+L["TOOLTIP_HINT"]    = "|cFFAAAAAA/icn2 show|r"
 L["HUD_TITLE"]       = "Character Needs"
 
 -- Options panel — title
