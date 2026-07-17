@@ -41,13 +41,12 @@ local PULSE_MIN    = 0.25
 local PULSE_MAX    = 1.0
 
 -- ── Deep Merge Engine ─────────────────────────────────────────────────────────
-local function MergeTheme(base, override)
+local function MergeTheme(base, override) -- Deep merge two theme tables, with override taking precedence
     local result = {}
     for k, v in pairs(base) do
         if type(v) == "table" and type(override[k]) == "table" then
             result[k] = MergeTheme(v, override[k])
         else
-            -- If user explicitly overrides (even with false or ""), use it.
             if override[k] ~= nil then 
                 result[k] = override[k]
             else
@@ -63,7 +62,7 @@ local function MergeTheme(base, override)
     return result
 end
 
--- ═══ SECTION 1 — The Master Blueprint (THEME_BASE) ════════════════════════════
+-- ═══ SECTION 1 — The Master Blueprint ════════════════════════════
 ICN2.THEME_BASE = {
     layout = {
         -- Visibility Flags
@@ -75,44 +74,44 @@ ICN2.THEME_BASE = {
         orientation = "vertical", -- "vertical" or "horizontal"
 
         -- Global Spacing
-        chromePad    = 6,
-        headerHeight = 26,
-        barGap       = 8,
+        chromePad    = 6,   -- Padding between chrome and content
+        headerHeight = 26,  -- Height of the header bar
+        barGap       = 8,   -- Gap between bars (vertical or horizontal)
 
         -- Element Dimensions
-        barWidth      = 220,
-        barHeight     = 20,
-        iconSize      = 24,
-        indicatorW    = 30,
-        glyphSize     = 16,          -- NEW: Indicator/glyph texture size
-        glyphPad      = 2,           -- NEW: Padding around glyph
+        barWidth      = 200,    -- Width of the bars (horizontal)
+        barHeight     = 20,     -- Height of the bars (vertical)
+        iconSize      = 20,     -- Size of the need icons
+        indicatorW    = 30,     -- Width of the indicator/glyph area
+        glyphSize     = 16,     -- Indicator/glyph texture size
+        glyphPad      = 2,      -- Padding around glyph
 
         -- Blocky Mode Settings
-        numBlocks   = 10,
-        blockGap    = 2,
+        numBlocks   = 10,   -- Number of blocks in blocky mode
+        blockGap    = 2,    -- Gap between blocks in blocky mode
 
-        -- Anchors (relative to their parent frame)
-        iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 0, y = 0 },
-        barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 28, y = 0 },
-        glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 },
+        -- Row Anchors
+        iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 0, y = 0 },      -- Icon position relative to row frame
+        barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 30, y = 0 },     -- Bar position relative to row frame
+        glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 },   -- Glyph position relative to row frame
         
-        -- Header
-        headerBtnAnchor = { point = "TOP", relPoint = "TOP", x = 0, y = -4 },
+        -- Header Buttons
+        headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -6, y = -4 },  -- Header buttons position relative to header frame
+        headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 12, y = 0 },   -- Header title position relative to header frame
         headerBtnSize   = 24,
         headerBtnGap    = 4,
 
         -- Labels & Fonts
-        labelLeftAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },
-        labelRightAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -3, y = 0 },
+        labelLeftAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },     -- Left-aligned label position relative to bar fill
+        labelRightAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -3, y = 0 },  -- Right-aligned label position relative to bar fill
         fontFace         = "Fonts\\FRIZQT__.TTF",
         fontSize         = 10,
         fontFlags        = "OUTLINE",
     },
     
     assets = {
-        -- Bar Fill Textures (primary texture for smooth bars)
-        barBg       = { 0.12, 0.12, 0.12, 0.9 },  -- NEW: Default bar background color
-        barOverlay  = nil,                         -- NEW: Optional overlay texture
+        barBg       = { 0.12, 0.12, 0.12, 0.9 },    -- Default bar background color
+        barOverlay  = nil,                          -- Optional overlay texture
         barFills = {
             hunger  = ASSETS_PATH .. "ICN2_fill_hunger_bar.png",
             thirst  = ASSETS_PATH .. "ICN2_fill_thirst_bar.png",
@@ -176,12 +175,23 @@ ICN2.HUD_THEMES = {
         id    = "colorful",
         label = "Colorful (Default)",
         mode  = "smooth",
+        layout = {
+            iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },
+            barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 33, y = 0 },
+            glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = 3, y = 0 },
+            headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -20, y = 0 },
+            headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 5, y = 0 },
+            headerBtnSize   = 16,
+            headerBtnGap    = 3,
+        },
+
         chrome = {
             bgCenter      = { 0.03, 0.03, 0.03, 0.65 },
-            cornerSize    = 6, edgeThickness = 2,
+            cornerSize    = 6,
+            edgeThickness = 2,
         },
         assets = {
-            barBg = { 0.05, 0.05, 0.05, 0.9 },
+            barBg = { 0.0, 0.0, 0.0, 0.0 },
             barFills = {
                 hunger  = ASSETS_PATH .. "ICN2_fill_hunger_bar.png",
                 thirst  = ASSETS_PATH .. "ICN2_fill_thirst_bar.png",
@@ -195,8 +205,13 @@ ICN2.HUD_THEMES = {
         label = "Smooth",
         mode  = "smooth",
         layout = {
-            iconAnchor = { point = "LEFT", relPoint = "LEFT", x = 4, y = 0 },
-            barAnchor  = { point = "LEFT", relPoint = "LEFT", x = 20, y = 0 }, 
+            iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },
+            barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 33, y = 0 },
+            glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = 3, y = 0 },
+            headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -20, y = 0 },
+            headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 5, y = 0 },
+            headerBtnSize   = 16,
+            headerBtnGap    = 3,
             iconSize   = 16,
             barHeight  = 16,
             glyphSize  = 14,
@@ -576,7 +591,9 @@ function ICN2:ApplyHUDTheme(themeId)
         headerFrame:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", cp, -cp)
         headerFrame:SetPoint("TOPRIGHT", hudFrame, "TOPRIGHT", -cp, -cp)
         
-        headerFrame.title:SetPoint("LEFT", headerFrame, "LEFT", 12, 0)
+        local titleAnchor = layout.headerTitleAnchor or { point = "LEFT", relPoint = "LEFT", x = 12, y = 0 }
+        headerFrame.title:ClearAllPoints()
+        headerFrame.title:SetPoint(titleAnchor.point, headerFrame, titleAnchor.relPoint, titleAnchor.x, titleAnchor.y)
 
         local hAnchor = layout.headerBtnAnchor
         headerBtns[2]:SetSize(layout.headerBtnSize, layout.headerBtnSize)
