@@ -40,8 +40,8 @@ ICN2._recentConsumableUse = {
 }
 
 -- ── Aura name patterns ────────────────────────────────────────────────────────
-local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }  -- No ^ anchor - these are safe
-local DRINK_AURA_PATTERNS  = { "^drink", "^drinking", "hydration" }  -- ^ anchor to avoid false matches
+local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }
+local DRINK_AURA_PATTERNS  = { "^drink", "^drinking", "hydration" }
 local DRINK_EXTRA_PATTERNS = { "conjured water", "mana tea", "morning glory" }
 local WELLFED_PATTERNS     = { "well fed" }
 local FEAST_NAME_PATTERNS  = { "feast", "banquet", "spread", "bountiful" }
@@ -155,12 +155,71 @@ end
 -- A nil updateInfo is a full-refresh signal — we rebuild from scratch.
 -- State.lua reads this cache for campfire/sitting detection instead of ForEachAura.
 ICN2._auraCache = {}  -- public so State.lua can read it
+ICN2._auraAccessBlocked = false
+ICN2._auraAccessBlockedReason = nil
+
+local function isSecretAuraError(err)
+    if not err or type(err) ~= "string" then return false end
+    local lower = err:lower()
+    return lower:find("secret", 1, true) ~= nil
+        or lower:find("forbidden", 1, true) ~= nil
+        or lower:find("tainted", 1, true) ~= nil
+end
+
+local function safeGetAuraDataByIndex(unit, index, filter)
+    if not C_UnitAuras or type(C_UnitAuras.GetAuraDataByIndex) ~= "function" then
+        return nil, false
+    end
+
+    local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, unit, index, filter)
+    if not ok then
+        if isSecretAuraError(aura) then
+            return nil, true
+        end
+        return nil, false
+    end
+
+    return aura, false
+end
+
+local function safeGetAuraDataByAuraInstanceID(unit, id)
+    if not C_UnitAuras or type(C_UnitAuras.GetAuraDataByAuraInstanceID) ~= "function" then
+        return nil, false
+    end
+
+    local ok, aura = pcall(C_UnitAuras.GetAuraDataByAuraInstanceID, unit, id)
+    if not ok then
+        if isSecretAuraError(aura) then
+            return nil, true
+        end
+        return nil, false
+    end
+
+    return aura, false
+end
+
+local function setAuraAccessBlocked(reason)
+    ICN2._auraAccessBlocked = true
+    ICN2._auraAccessBlockedReason = reason or "secret"
+    ICN2._auraCache = {}
+end
+
+local function clearAuraAccessBlocked()
+    ICN2._auraAccessBlocked = false
+    ICN2._auraAccessBlockedReason = nil
+end
 
 local function rebuildAuraCache()
+    clearAuraAccessBlocked()
+
     local cache = {}
     local i = 1
     while true do
-        local aura = C_UnitAuras.GetAuraDataByIndex("player", i, "HELPFUL")
+        local aura, blocked = safeGetAuraDataByIndex("player", i, "HELPFUL")
+        if blocked then
+            setAuraAccessBlocked("secret")
+            return
+        end
         if not aura then break end
         if aura.auraInstanceID then
             cache[aura.auraInstanceID] = aura
@@ -178,14 +237,23 @@ local function patchAuraCache(updateInfo)
     if updateInfo.addedAuras then
         for _, aura in ipairs(updateInfo.addedAuras) do
             if aura.auraInstanceID then
-                cache[aura.auraInstanceID] = aura
+                local fresh, blocked = safeGetAuraDataByAuraInstanceID("player", aura.auraInstanceID)
+                if blocked then
+                    setAuraAccessBlocked("secret")
+                    return
+                end
+                cache[aura.auraInstanceID] = fresh or aura
             end
         end
     end
 
     if updateInfo.updatedAuraInstanceIDs then
         for _, id in ipairs(updateInfo.updatedAuraInstanceIDs) do
-            local fresh = C_UnitAuras.GetAuraDataByAuraInstanceID("player", id)
+            local fresh, blocked = safeGetAuraDataByAuraInstanceID("player", id)
+            if blocked then
+                setAuraAccessBlocked("secret")
+                return
+            end
             if fresh then
                 cache[id] = fresh
             else
@@ -199,6 +267,8 @@ local function patchAuraCache(updateInfo)
             cache[id] = nil
         end
     end
+
+    clearAuraAccessBlocked()
 end
 
 -- Searches the cache for the first aura matching any pattern set.
@@ -217,53 +287,20 @@ function ICN2:InitAuraCache()
 end
 
 -- ── Tier detection ────────────────────────────────────────────────────────────
--- Determines the tier of food/drink by scanning player bags for the item
--- Checks for feast keywords in aura name first, then scans bags for food/drink items and their tooltips to detect well-fed buffs.
--- Not ideal, I~m still looking for a better way to detect well-fed buffs without relying on tooltip text
-local function detectTierFromBags(isFeast)
-    if isFeast then return "feast" end
-    for bag = 0, 4 do
-        local numSlots = C_Container.GetContainerNumSlots(bag)
-        if numSlots and numSlots > 0 then
-            for slot = 1, numSlots do
-                local itemID = C_Container.GetContainerItemID(bag, slot)
-                
-                if itemID then
-                    -- GetItemInfo returns item metadata including class/subclass IDs
-                    -- classID 0 = Consumable, subClassID 5 = Food & Drink
-                    local _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
-                    
-                    -- Filter: only process actual food/drink items
-                    -- Consumable (classID = 0), Food & Drink subclass (subClassID = 5)
-                    if classID == 0 and subClassID == 5 then
-                        local tooltipData = C_TooltipInfo and C_TooltipInfo.GetItemByID(itemID)
-                        if tooltipData and tooltipData.lines then
-                            for _, line in ipairs(tooltipData.lines) do
-                                local text = line.leftText or ""
-                                if text:lower():find("well fed", 1, true) then
-                                    return "complex"
-                                end
-                            end
-                        else
-                            local itemLink = C_Container.GetContainerItemLink(bag, slot)
-                            if itemLink then
-                                local _, spellID = GetItemSpell(itemLink)
-                                if spellID then
-                                    local desc = GetSpellDescription and GetSpellDescription(spellID) or ""
-                                    if desc:lower():find("well fed", 1, true) then
-                                        return "complex"
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
+-- Detects food tier by prioritizing the short-lived consumable hint, then falling
+-- back to aura duration heuristics. Duration is used because standard food/drink
+-- auras are typically ~20s while higher-tier consumables often last 25-30s.
+local function detectFoodTier(foodAura)
+    local recentTier = consumeRecentConsumableTier()
+    if recentTier then return recentTier end
+
+    if foodAura and matchesAny(foodAura.name, FEAST_NAME_PATTERNS) then
+        return "feast"
     end
 
-    return "simple"  -- Default tier if no special effects found
-end
+    if foodAura and foodAura.duration and foodAura.duration >= 25 then
+        return "complex"
+    end
 
 -- Detects food tier, checking for feast keywords in aura name first
 local function detectFoodTier(foodAura)
@@ -316,21 +353,29 @@ end
 -- ── Main aura handler ────────────────────────────────────────────────────────
 -- Entry point called by Core's UNIT_AURA event with the raw updateInfo payload.
 -- Step 1: Update the shared aura cache (delta patch or full rebuild).
--- Step 2: Derive food/drink/wellfed state from the now-current cache
+-- Step 2: Derive food/drink/wellfed state from the now-current cache.
 function ICN2:OnUnitAura(updateInfo)
     -- ── Step 1: maintain the cache ────────────────────────────────────────────
-    -- updateInfo == nil is Blizzard's signal for a full refresh (login, reload, etc.)
     if not updateInfo then
         rebuildAuraCache()
     else
         patchAuraCache(updateInfo)
     end
 
-    -- ── Step 2: derive state from cache ───────────────────────────────────────
+    if ICN2._auraAccessBlocked then return end
     if ICN2.State and ICN2.State.inInstance then return end
     if UnitAffectingCombat("player") then return end
 
     local now = GetTime()
+
+    -- ── V4: Race Identity Interceptor Hook ────────────────────────────────────
+    if ICN2DB and ICN2DB.settings and ICN2DB.settings.raceIdentityEnabled and ICN2.RaceModifiers then
+        local _, playerRace = UnitRace("player")
+        if ICN2.RaceModifiers[playerRace] and type(ICN2.RaceModifiers[playerRace].HandleConsumables) == "function" then
+            local handled = ICN2.RaceModifiers[playerRace]:HandleConsumables(ICN2._auraCache, now, foodState, drinkState)
+            if handled then return end
+        end
+    end
 
     -- ── Food aura handling ─────────────────────────────────────────────────────
     local foodAura = findAuraInCache(FOOD_AURA_PATTERNS)
@@ -362,7 +407,7 @@ function ICN2:OnUnitAura(updateInfo)
             ICN2._lastWellFedInstanceID = id
             ICN2._wellFedPauseExpiry    = now + WELLFED_PAUSE_SECS
             ICN2DB.wellFedEligible      = false
-            
+
             print(string.format(
                 "|cFFFF6600ICN2|r " .. L["WELLFED_MSG"],
                 math.floor(WELLFED_PAUSE_SECS / 60)))
@@ -378,7 +423,7 @@ function ICN2:OnUnitAura(updateInfo)
             drinkState.active    = true
             drinkState.startTime = now
             drinkState.duration  = drinkAura.duration or 30
-            drinkState.tier      = detectDrinkTier()
+            drinkState.tier      = detectDrinkTier(drinkAura)
         end
     else
         if drinkState.active then

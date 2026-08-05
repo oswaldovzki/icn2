@@ -26,7 +26,10 @@
         "ICN2DB",
         "GetUnitStandState",
         "UIDropDownMenu_EnableDropDown",
-        "UIDropDownMenu_DisableDropDown"
+        "UIDropDownMenu_DisableDropDown",
+        "Background",
+        "Add",
+        "DoEmote"
     ],
     "Lua.diagnostics.disable": [
         "deprecated",

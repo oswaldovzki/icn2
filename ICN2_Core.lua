@@ -418,6 +418,7 @@ function ICN2:GetCurrentRates()
     self:_ApplyCrossNeedModifiers(rates)
     self:_ApplyArmorModifier(rates)
     self:_ApplyFoodDrinkRecovery(rates)
+    self:_ApplySpellRecovery(rates)
     self:_ApplyFatigueRecovery(rates)
     self:_ApplyWellFedPause(rates)
     return rates
@@ -520,6 +521,14 @@ frame:SetScript("OnEvent", function(self, event, ...)
     elseif event == "PLAYER_REGEN_ENABLED" then
         ICN2.State.inCombat = false
         ICN2:OnCombatBreakFoodDrink()
+        -- If HUD show was deferred during combat, show it now (safe to call)
+        if ICN2._hudPendingShow ~= nil then
+            local hud = _G and _G["ICN2HUDFrame"]
+            if hud and ICN2._hudPendingShow then
+                hud:Show()
+            end
+            ICN2._hudPendingShow = nil
+        end
 
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
         local slot = ...
@@ -543,6 +552,7 @@ frame:SetScript("OnUpdate", function(self, dt) -- accumulates elapsed time and t
         ICN2:UpdateState()
         ICN2:FoodDrinkTick()
         ICN2:RestStanceTick()
+        ICN2:SpellRecoveryTick()
         tick()
     end
 end)
@@ -552,16 +562,64 @@ function ICN2:RestStanceTick() end -- stub for future use; called each tick afte
 
 -- ══ SECTION 7 — Racial / class ability recovery ════════════════════════════════
 
+ICN2._activeSpellRecoveries = {}
+
 local ABILITY_RECOVERY = {
-    [20577]  = function() ICN2:Eat(60)  end,   -- Cannibalize
-    [108968] = function() ICN2:Drink(40) end,  -- Symbiosis (water)
-    [204065] = function() ICN2:Eat(10); ICN2:Rest(10) end, -- Spirit Mend
-    [58984]  = function() ICN2:Rest(5)  end, -- Shadowmeld
-    [1231411] = function() ICN2:Eat(10); ICN2:Drink(10); ICN2:Rest(10) end, -- Recuperate
+    [20577]   = { duration = 10, hunger = 75 },                             -- Cannibalize
+    [108968]  = { duration = 10, thirst = 40 },                             -- Symbiosis (water)
+    [204065]  = { duration = 10, hunger = 10, fatigue = 10 },               -- Spirit Mend
+    [58984]   = { duration = 10, fatigue = 15 },                            -- Shadowmeld
+    [1231411] = { duration = 10, hunger = 15, thirst = 15, fatigue = 15 },  -- Recuperate
 }
 
 function ICN2:HandleAbilityRecovery(spellID)
-    if ABILITY_RECOVERY[spellID] then ABILITY_RECOVERY[spellID]() end
+    local spellData = ABILITY_RECOVERY[spellID]
+    if spellData then
+        ICN2._activeSpellRecoveries[spellID] = {
+            ticksLeft   = spellData.duration,
+            hungerTick  = (spellData.hunger or 0) / spellData.duration,
+            thirstTick  = (spellData.thirst or 0) / spellData.duration,
+            fatigueTick = (spellData.fatigue or 0) / spellData.duration,
+        }
+    end
+end
+
+function ICN2:CastRecoverySpell(spellID, spellName)
+    if not spellID and not spellName then return false end
+
+    if C_Spell and C_Spell.CastSpell and spellID then
+        local ok, result = pcall(C_Spell.CastSpell, spellID)
+        if ok and result ~= false then return true end
+    end
+
+    if CastSpellByID and spellID then
+        local ok, result = pcall(CastSpellByID, spellID)
+        if ok and result ~= false then return true end
+    end
+
+    if spellName and CastSpellByName then
+        local ok, result = pcall(CastSpellByName, spellName)
+        if ok and result ~= false then return true end
+    end
+
+    return false
+end
+
+function ICN2:_ApplySpellRecovery(rates)
+    for _, data in pairs(ICN2._activeSpellRecoveries) do
+        rates.hunger  = rates.hunger + data.hungerTick
+        rates.thirst  = rates.thirst + data.thirstTick
+        rates.fatigue = rates.fatigue + data.fatigueTick
+    end
+end
+
+function ICN2:SpellRecoveryTick()
+    for spellID, data in pairs(ICN2._activeSpellRecoveries) do
+        data.ticksLeft = data.ticksLeft - 1
+        if data.ticksLeft <= 0 then
+            ICN2._activeSpellRecoveries[spellID] = nil
+        end
+    end
 end
 
 -- ══ SECTION 8 — /icn2 details ══════════════════════════════════════════════════
@@ -665,12 +723,16 @@ function ICN2:PrintDetails() -- prints detailed information about the current ra
     end
     print(P .. " " .. L["DETAILS_HEADER"] .. presetLine)
     print(sep)
+    local function ceil2(v)
+        if not v or type(v) ~= "number" then return v end
+        return math.ceil(v * 100) / 100
+    end
     print(string.format(P .. " " .. L["DETAILS_HUNGER_LINE"],
-        ICN2:GetNeedPercent("hunger"),  ICN2DB.hunger,  ICN2:GetMaxValue("hunger"),  rates.hunger))
+        ICN2:GetNeedPercent("hunger"),  ICN2DB.hunger,  ICN2:GetMaxValue("hunger"),  ceil2(rates.hunger * 60)))
     print(string.format(P .. " " .. L["DETAILS_THIRST_LINE"],
-        ICN2:GetNeedPercent("thirst"),  ICN2DB.thirst,  ICN2:GetMaxValue("thirst"),  rates.thirst))
+        ICN2:GetNeedPercent("thirst"),  ICN2DB.thirst,  ICN2:GetMaxValue("thirst"),  ceil2(rates.thirst * 60)))
     print(string.format(P .. " " .. L["DETAILS_FATIGUE_LINE"],
-        ICN2:GetNeedPercent("fatigue"), ICN2DB.fatigue, ICN2:GetMaxValue("fatigue"), rates.fatigue, fatigueGain, ICN2._fatigueRecoveryTier))
+        ICN2:GetNeedPercent("fatigue"), ICN2DB.fatigue, ICN2:GetMaxValue("fatigue"), ceil2(rates.fatigue * 60), fatigueGain, ICN2._fatigueRecoveryTier))
     print(sep)
     print(P .. " " .. L["DETAILS_ACTIVE_MOD"])
     if #labels == 0 then

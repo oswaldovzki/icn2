@@ -67,9 +67,9 @@ ICN2.DEFAULTS = {
         -- Decay per real-time second at medium preset (multiplier = 1.0)
         -- Situational and race/class multipliers are applied on top of these base values.
         decayRates = {
-            hunger  = 0.0278,  -- 50 pts in 30 min at 1.0×
-            thirst  = 0.0278,
-            fatigue = 0.0167,  -- 30 pts in 30 min at 1.0×
+            hunger  = 0.0167,   -- 1 point per 1 minute at 1.0×
+            thirst  = 0.0167,
+            fatigue = 0.0167,
         },
 
         -- HUD
@@ -117,10 +117,10 @@ ICN2.Palettes = {
 -- ── Preset multipliers (applied to base decay) ────────────────────────────────
 -- Multipliers for decay rates: higher values mean faster decay (needs deplete quicker).
 ICN2.PRESETS = {
-    fast      = 5.00,   -- doubled
+    fast      = 3.00,   -- doubled
     medium    = 1.00,   -- baseline
-    slow      = 0.20,   -- 5× slower than medium
-    realistic = 0.01,   -- 10× slower than medium
+    slow      = 0.50,   -- 2× slower than medium
+    realistic = 0.02,   -- 50× slower than medium
     custom    = 1.00
 }
 
@@ -252,7 +252,7 @@ ICN2.EMOTES = {
 -- Thresholds are always percentages (0–100) regardless of point pool size.
 ICN2.THRESHOLDS = {
     critical = 15,
-    low      = 35,
+    low      = 25,
     ok       = 100,
 }
 
@@ -285,19 +285,19 @@ end
 -- Only applies to decay (negative rates). Recovery is never scaled here.
 ICN2.SELF_MODIFIER_CURVES = {
     hunger = {
-        low_threshold  = 35,   -- matches ICN2.THRESHOLDS.low
+        low_threshold  = 25,   -- matches ICN2.THRESHOLDS.low
         crit_threshold = 15,   -- matches ICN2.THRESHOLDS.critical
         low_mult       = 1.10, -- 10% faster between low and critical
         crit_mult      = 1.20, -- 20% faster at critical (starving panic)
     },
     thirst = {
-        low_threshold  = 35,
+        low_threshold  = 25,
         crit_threshold = 15,
         low_mult       = 1.15, -- thirst accelerates slightly more than hunger
         crit_mult      = 1.30, -- dehydration is acutely urgent
     },
     fatigue = {
-        low_threshold  = 35,
+        low_threshold  = 25,
         crit_threshold = 15,
         low_mult       = 1.20,
         crit_mult      = 1.40,
@@ -310,7 +310,7 @@ ICN2.CROSS_NEED_RULES = {
     {
         source    = "hunger",
         target    = "fatigue",
-        threshold = 35,
+        threshold = 25,
         mult      = 1.15,
         label     = "hungry→fatigue×1.15",
     },

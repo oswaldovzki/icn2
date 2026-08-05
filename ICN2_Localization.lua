@@ -12,7 +12,7 @@ L["FATIGUE"] = "Fatigue"
 -- System messages
 L["MSG_LOADED"]          = "loaded. Type |cFFFFFF00/icn2|r for options."
 L["MSG_MIGRATED_POINTS"] = "Needs migrated to point-based system."
-L["MSG_RATES_UPDATED"]   = "Rates updated to v2.3.0 defaults."
+L["MSG_RATES_UPDATED"]   = "Rates updated to v2.5.0 defaults."
 L["MSG_RESET"]           = "Needs reset to 100%."
 L["MSG_SET_ZERO"]        = "%s set to 0%%."  -- %s = need name (colored)
 L["MSG_EAT"]             = "You eat something. Hunger restored."
@@ -26,9 +26,9 @@ L["MSG_COMMANDS"]        = "Commands: |cFFFFFF00/icn2|r [show|eat|drink|rest|res
 
 -- Status / Details output
 L["DETAILS_HEADER"]           = "|cFFFFFF00Details|r — "
-L["DETAILS_HUNGER_LINE"]      = "|cFF00FF00Hunger|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/s"
-L["DETAILS_THIRST_LINE"]      = "|cFF4499FFThirst|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/s"
-L["DETAILS_FATIGUE_LINE"]     = "|cFFFFDD00Fatigue|r %.1f%%  (%.1f / %d pts)  net %+.4f pts/s  (recovery %+.4f pts/s [%s])"
+L["DETAILS_HUNGER_LINE"]      = "|cFF00FF00Hunger|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/min"
+L["DETAILS_THIRST_LINE"]      = "|cFF4499FFThirst|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/min"
+L["DETAILS_FATIGUE_LINE"]     = "|cFFFFDD00Fatigue|r %.1f%%  (%.1f / %d pts)  net %+.4f pts/min  (recovery %+.4f pts/min [%s])"
 L["DETAILS_ACTIVE_MOD"]       = "|cFFAAAAAAActive modifiers:|r"
 L["DETAILS_NO_MOD"]           = "  |cFF888888None (walking/idle outdoors)|r"
 L["DETAILS_ARMOR"]            = "  |cFFCCCCCCArmor:%s (F×%.2f)|r"
@@ -73,11 +73,11 @@ L["TOOLTIP_TITLE"]   = "|cFFFF6600ICN2 - Character Needs|r"
 L["TOOLTIP_HUNGER"]  = "Hunger:  %.1f%%"
 L["TOOLTIP_THIRST"]  = "Thirst:  %.1f%%"
 L["TOOLTIP_FATIGUE"] = "Fatigue: %.1f%%"
-L["TOOLTIP_HINT"]    = "|cFFAAAAAA/icn2 details|r"
+L["TOOLTIP_HINT"]    = "|cFFAAAAAA/icn2 show|r"
 L["HUD_TITLE"]       = "Character Needs"
 
 -- Options panel — title
-L["OPT_TITLE"] = "|cFFFF6600ICN2|r – Character Needs  |cFF888888v2.3.0|r"
+L["OPT_TITLE"] = "|cFFFF6600ICN2|r – Character Needs  |cFF888888v2.5.0|r"
 
 -- Options — tab labels
 L["TAB_GENERAL"] = "General"
@@ -140,7 +140,7 @@ if GetLocale() == "ptBR" then
 
     L["MSG_LOADED"]          = "carregado. Digite |cFFFFFF00/icn2|r para opções."
     L["MSG_MIGRATED_POINTS"] = "Necessidades migradas para o sistema de pontos."
-    L["MSG_RATES_UPDATED"]   = "Taxas atualizadas para os padrões v2.3.0."
+    L["MSG_RATES_UPDATED"]   = "Taxas atualizadas para os padrões v2.5.0."
     L["MSG_RESET"]           = "Necessidades restauradas para 100%."
     L["MSG_SET_ZERO"]        = "%s definido para 0%%."
     L["MSG_EAT"]             = "Você come algo. Fome restaurada."
@@ -179,7 +179,7 @@ if GetLocale() == "ptBR" then
     L["TOOLTIP_FATIGUE"] = "Fadiga: %.1f%%"
     L["HUD_TITLE"]       = "Necessidades do Personagem"
 
-    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Necessidades do Personagem  |cFF888888v2.3.0|r"
+    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Necessidades do Personagem  |cFF888888v2.5.0|r"
     L["TAB_GENERAL"]           = "Geral"
     L["TAB_DECAY"]             = "Decaimento"
     L["OPT_SEC_HUD"]           = "HUD"
@@ -225,6 +225,23 @@ if GetLocale() == "ptBR" then
     L["SRC_HOUSING"]     = "moradia"
     L["SRC_SITTING"]     = "sentado"
     L["SRC_EAT_DRINK"]   = "comendo/bebendo"
+
+    L["DETAILS_HEADER"]       = "|cFFFFFF00Detalhes|r — "
+    L["DETAILS_HUNGER_LINE"]  = "|cFF00FF00Fome|r  %.1f%%  (%.1f / %d pts)  líquido %+.4f pts/min"
+    L["DETAILS_THIRST_LINE"]  = "|cFF4499FFSede|r  %.1f%%  (%.1f / %d pts)  líquido %+.4f pts/min"
+    L["DETAILS_FATIGUE_LINE"] = "|cFFFFDD00Fadiga|r %.1f%%  (%.1f / %d pts)  líquido %+.4f pts/min  (recuperação %+.4f pts/min [%s])"
+    L["DETAILS_ARMOR"]        = "  |cFFCCCCCCArmadura:%s (F×%.2f)|r"
+    L["DETAILS_FAT_RECOVERY"] = "  |cFFCCCCCCRecuperação de fadiga: %s — fontes: %s|r"
+    L["DETAILS_CROSS_NEED"]   = "  |cFFFF9900Necessidade cruzada: %s|r"
+    L["SIT_RACE"]             = "Raça:%s (H×%.2f T×%.2f F×%.2f)"
+    L["SIT_CLASS"]            = "Classe:%s (H×%.2f T×%.2f F×%.2f)"
+    L["PRESET_CUSTOM"]        = "Customizado — H×%.2f  T×%.2f  F×%.2f"
+    L["PRESET_NAMED"]         = "%s (global ×%.2f — exibição do controle %d na escala 0–%d)"
+    L["TOOLTIP_HINT"]         = "|cFFAAAAAA/icn2 show|r"
+    L["OPT_SEC_THEME"]        = "Tema:"
+    L["OPT_SEC_LABEL_MODE"]   = "Rótulo da barra:"
+    L["BIAS_LABEL"]           = "%s: %d  (×%.2f vs base Média)"
+    L["BIAS_LABEL_READONLY"]  = "%s: %d  (×%.2f vs base Média)  |cFF888888(predefinição)|r"
 end
 
 -- ── Spanish (esES / esMX) ─────────────────────────────────────────────────────
@@ -235,7 +252,7 @@ if GetLocale() == "esES" or GetLocale() == "esMX" then
 
     L["MSG_LOADED"]          = "cargado. Escribe |cFFFFFF00/icn2|r para opciones."
     L["MSG_MIGRATED_POINTS"] = "Necesidades migradas al sistema de puntos."
-    L["MSG_RATES_UPDATED"]   = "Tasas actualizadas a los valores predeterminados v2.3.0."
+    L["MSG_RATES_UPDATED"]   = "Tasas actualizadas a los valores predeterminados v2.5.0."
     L["MSG_RESET"]           = "Necesidades restablecidas al 100%."
     L["MSG_SET_ZERO"]        = "%s establecido en 0%%."
     L["MSG_EAT"]             = "Comes algo. Hambre restaurada."
@@ -274,7 +291,7 @@ if GetLocale() == "esES" or GetLocale() == "esMX" then
     L["TOOLTIP_FATIGUE"] = "Fatiga:  %.1f%%"
     L["HUD_TITLE"]       = "Necesidades del Personaje"
 
-    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Necesidades del Personaje  |cFF888888v2.3.0|r"
+    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Necesidades del Personaje  |cFF888888v2.5.0|r"
     L["TAB_GENERAL"]           = "General"
     L["TAB_DECAY"]             = "Decaimiento"
     L["OPT_SEC_HUD"]           = "HUD"
@@ -320,6 +337,23 @@ if GetLocale() == "esES" or GetLocale() == "esMX" then
     L["SRC_HOUSING"]     = "vivienda"
     L["SRC_SITTING"]     = "sentado"
     L["SRC_EAT_DRINK"]   = "comiendo/bebiendo"
+
+    L["DETAILS_HEADER"]       = "|cFFFFFF00Detalles|r — "
+    L["DETAILS_HUNGER_LINE"]  = "|cFF00FF00Hambre|r  %.1f%%  (%.1f / %d pts)  neto %+.4f pts/min"
+    L["DETAILS_THIRST_LINE"]  = "|cFF4499FFSed|r  %.1f%%  (%.1f / %d pts)  neto %+.4f pts/min"
+    L["DETAILS_FATIGUE_LINE"] = "|cFFFFDD00Fatiga|r %.1f%%  (%.1f / %d pts)  neto %+.4f pts/min  (recuperación %+.4f pts/min [%s])"
+    L["DETAILS_ARMOR"]        = "  |cFFCCCCCCArmadura:%s (F×%.2f)|r"
+    L["DETAILS_FAT_RECOVERY"] = "  |cFFCCCCCCRecuperación de fatiga: %s — fuentes: %s|r"
+    L["DETAILS_CROSS_NEED"]   = "  |cFFFF9900Necesidad cruzada: %s|r"
+    L["SIT_RACE"]             = "Raza:%s (H×%.2f T×%.2f F×%.2f)"
+    L["SIT_CLASS"]            = "Clase:%s (H×%.2f T×%.2f F×%.2f)"
+    L["PRESET_CUSTOM"]        = "Personalizado — H×%.2f  T×%.2f  F×%.2f"
+    L["PRESET_NAMED"]         = "%s (global ×%.2f — barra %d en escala 0–%d)"
+    L["TOOLTIP_HINT"]         = "|cFFAAAAAA/icn2 show|r"
+    L["OPT_SEC_THEME"]        = "Tema:"
+    L["OPT_SEC_LABEL_MODE"]   = "Etiqueta de barra:"
+    L["BIAS_LABEL"]           = "%s: %d  (×%.2f vs base Media)"
+    L["BIAS_LABEL_READONLY"]  = "%s: %d  (×%.2f vs base Media)  |cFF888888(preajuste)|r"
 end
 
 -- ── French (frFR) ─────────────────────────────────────────────────────────────
@@ -330,7 +364,7 @@ if GetLocale() == "frFR" then
 
     L["MSG_LOADED"]          = "chargé. Tapez |cFFFFFF00/icn2|r pour les options."
     L["MSG_MIGRATED_POINTS"] = "Besoins migrés vers le système de points."
-    L["MSG_RATES_UPDATED"]   = "Taux mis à jour selon les valeurs par défaut v2.3.0."
+    L["MSG_RATES_UPDATED"]   = "Taux mis à jour selon les valeurs par défaut v2.5.0."
     L["MSG_RESET"]           = "Besoins rétablis à 100 %."
     L["MSG_SET_ZERO"]        = "%s défini à 0 %%."
     L["MSG_EAT"]             = "Vous mangez quelque chose. Faim restaurée."
@@ -369,7 +403,7 @@ if GetLocale() == "frFR" then
     L["TOOLTIP_FATIGUE"] = "Fatigue : %.1f%%"
     L["HUD_TITLE"]       = "Besoins du Personnage"
 
-    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Besoins du Personnage  |cFF888888v2.3.0|r"
+    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Besoins du Personnage  |cFF888888v2.5.0|r"
     L["TAB_GENERAL"]           = "Général"
     L["TAB_DECAY"]             = "Décroissance"
     L["OPT_SEC_HUD"]           = "HUD"
@@ -415,6 +449,23 @@ if GetLocale() == "frFR" then
     L["SRC_HOUSING"]     = "logement"
     L["SRC_SITTING"]     = "assis"
     L["SRC_EAT_DRINK"]   = "manger/boire"
+
+    L["DETAILS_HEADER"]       = "|cFFFFFF00Détails|r — "
+    L["DETAILS_HUNGER_LINE"]  = "|cFF00FF00Faim|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/min"
+    L["DETAILS_THIRST_LINE"]  = "|cFF4499FFSoif|r  %.1f%%  (%.1f / %d pts)  net %+.4f pts/min"
+    L["DETAILS_FATIGUE_LINE"] = "|cFFFFDD00Fatigue|r %.1f%%  (%.1f / %d pts)  net %+.4f pts/min  (récupération %+.4f pts/min [%s])"
+    L["DETAILS_ARMOR"]        = "  |cFFCCCCCCArmure : %s (F×%.2f)|r"
+    L["DETAILS_FAT_RECOVERY"] = "  |cFFCCCCCCRécupération de fatigue : %s — sources : %s|r"
+    L["DETAILS_CROSS_NEED"]   = "  |cFFFF9900Besoin croisé : %s|r"
+    L["SIT_RACE"]             = "Race : %s (H×%.2f T×%.2f F×%.2f)"
+    L["SIT_CLASS"]            = "Classe : %s (H×%.2f T×%.2f F×%.2f)"
+    L["PRESET_CUSTOM"]        = "Personnalisé — H×%.2f  T×%.2f  F×%.2f"
+    L["PRESET_NAMED"]         = "%s (global ×%.2f — curseur %d sur échelle 0–%d)"
+    L["TOOLTIP_HINT"]         = "|cFFAAAAAA/icn2 show|r"
+    L["OPT_SEC_THEME"]        = "Thème :"
+    L["OPT_SEC_LABEL_MODE"]   = "Texte de la barre :"
+    L["BIAS_LABEL"]           = "%s : %d  (×%.2f vs base Moyenne)"
+    L["BIAS_LABEL_READONLY"]  = "%s : %d  (×%.2f vs base Moyenne)  |cFF888888(préréglage)|r"
 end
 
 -- ── German (deDE) ─────────────────────────────────────────────────────────────
@@ -425,7 +476,7 @@ if GetLocale() == "deDE" then
 
     L["MSG_LOADED"]          = "geladen. Gib |cFFFFFF00/icn2|r für Optionen ein."
     L["MSG_MIGRATED_POINTS"] = "Bedürfnisse auf punktebasiertes System migriert."
-    L["MSG_RATES_UPDATED"]   = "Raten auf v2.3.0-Standardwerte aktualisiert."
+    L["MSG_RATES_UPDATED"]   = "Raten auf v2.5.0-Standardwerte aktualisiert."
     L["MSG_RESET"]           = "Bedürfnisse auf 100 % zurückgesetzt."
     L["MSG_SET_ZERO"]        = "%s auf 0 %% gesetzt."
     L["MSG_EAT"]             = "Du isst etwas. Hunger wiederhergestellt."
@@ -464,7 +515,7 @@ if GetLocale() == "deDE" then
     L["TOOLTIP_FATIGUE"] = "Erschöpfung:  %.1f%%"
     L["HUD_TITLE"]       = "Charakterbedürfnisse"
 
-    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Charakterbedürfnisse  |cFF888888v2.3.0|r"
+    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Charakterbedürfnisse  |cFF888888v2.5.0|r"
     L["TAB_GENERAL"]           = "Allgemein"
     L["TAB_DECAY"]             = "Verfall & Raten"
     L["OPT_SEC_HUD"]           = "HUD"
@@ -510,4 +561,21 @@ if GetLocale() == "deDE" then
     L["SRC_HOUSING"]     = "Unterkunft"
     L["SRC_SITTING"]     = "sitzend"
     L["SRC_EAT_DRINK"]   = "essen/trinken"
+
+    L["DETAILS_HEADER"]       = "|cFFFFFF00Details|r — "
+    L["DETAILS_HUNGER_LINE"]  = "|cFF00FF00Hunger|r  %.1f%%  (%.1f / %d Pkt)  netto %+.4f Pkt/Min"
+    L["DETAILS_THIRST_LINE"]  = "|cFF4499FFDurst|r  %.1f%%  (%.1f / %d Pkt)  netto %+.4f Pkt/Min"
+    L["DETAILS_FATIGUE_LINE"] = "|cFFFFDD00Erschöpfung|r %.1f%%  (%.1f / %d Pkt)  netto %+.4f Pkt/Min  (Erholung %+.4f Pkt/Min [%s])"
+    L["DETAILS_ARMOR"]        = "  |cFFCCCCCCRüstung:%s (F×%.2f)|r"
+    L["DETAILS_FAT_RECOVERY"] = "  |cFFCCCCCCErschöpfungserholung: %s — Quellen: %s|r"
+    L["DETAILS_CROSS_NEED"]   = "  |cFFFF9900Kreuzbedürfnis: %s|r"
+    L["SIT_RACE"]             = "Volk:%s (H×%.2f T×%.2f F×%.2f)"
+    L["SIT_CLASS"]            = "Klasse:%s (H×%.2f T×%.2f F×%.2f)"
+    L["PRESET_CUSTOM"]        = "Benutzerdefiniert — H×%.2f  T×%.2f  F×%.2f"
+    L["PRESET_NAMED"]         = "%s (global ×%.2f — Regleranzeige %d auf 0–%d Skala)"
+    L["TOOLTIP_HINT"]         = "|cFFAAAAAA/icn2 show|r"
+    L["OPT_SEC_THEME"]        = "Design:"
+    L["OPT_SEC_LABEL_MODE"]   = "Balkenbeschriftung:"
+    L["BIAS_LABEL"]           = "%s: %d  (×%.2f vs Mittlere Basis)"
+    L["BIAS_LABEL_READONLY"]  = "%s: %d  (×%.2f vs Mittlere Basis)  |cFF888888(Vorgabe)|r"
 end

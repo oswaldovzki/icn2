@@ -52,6 +52,13 @@ function ICN2:UpdateState()
         return  -- Exit early — no aura scanning in instances
     end
 
+    if ICN2._auraAccessBlocked then
+        s.isSitting    = false
+        s.nearCampfire = false
+        s.inHousing    = false
+        return
+    end
+
     -- ── Aura-based detection ──────────────────────────────────────────────
     -- Two guards before the scan:
     --   1. s.inCombat

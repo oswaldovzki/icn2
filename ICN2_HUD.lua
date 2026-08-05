@@ -16,45 +16,43 @@ local headerFrame
 local contentFrame
 local chrome = {}
 local bars   = {}
+local headerBtns = {}
 
--- ── Layout constants ──────────────────────────────────────────────────────────
-local BAR_H       = 20
-local BAR_GAP     = 8
-local ICON_SIZE   = 24
-local NUM_BLOCKS  = 10
-local BLOCK_GAP   = 2
-local INDICATOR_W = 30
-local HEADER_H    = 26
-local CHROME_PAD  = 6
+-- ── Pixel Snapping ──────────────────────────────────────────────
+local function PixelSnap(value)
+    local uiHeight = UIParent:GetHeight()
+    if not uiHeight or uiHeight == 0 then return value end
+    local px = 768 / uiHeight
+    return px * math.floor((value / px) + 0.5)
+end
 
-local BASE_BAR_W  = (BAR_H + BLOCK_GAP) * NUM_BLOCKS   -- 220px at scale 1.0
-
+-- ── System Constants (Logic Only) ─────────────────────────────────────────────
 local NEED_KEYS = { "hunger", "thirst", "fatigue" }
 local ASSETS_PATH = "Interface\\AddOns\\ICN2\\assets\\"
 
--- ── Default need icons ────────────────────────────────────────────────────────
-local NEED_ICONS = {
-    hunger  = ASSETS_PATH .. "inc2_hunger-chicken_icon.png",
-    thirst  = ASSETS_PATH .. "inc2_thirst_icon.png",
-    fatigue = ASSETS_PATH .. "inc2_fatigue_icon.png",
-}
+local IND_FASTER_UP   =  0.278
+local IND_FAST_UP     =  0.167
+local IND_FAST_DOWN   = -0.050
+local IND_FASTER_DOWN = -0.100
+local STABLE_EPSILON  =  0.002
 
--- ── Fallback bar colors ───────────────────────────────────────────────────────
-local BLOCK_COLORS = {
-    hunger  = { 0.2, 0.9,  0.2 },
-    thirst  = { 0.2, 0.5,  1.0 },
-    fatigue = { 1.0, 0.85, 0.1 },
-}
+local PULSE_PERIOD = 2.0
+local PULSE_MIN    = 0.25
+local PULSE_MAX    = 1.0
 
-local DEFAULT_FILL_TEX = "Interface\\TargetingFrame\\UI-StatusBar"
-
+-- ── Deep Merge Engine ─────────────────────────────────────────────────────────
 local function MergeTheme(base, override)
     local result = {}
     for k, v in pairs(base) do
         if type(v) == "table" and type(override[k]) == "table" then
             result[k] = MergeTheme(v, override[k])
         else
-            result[k] = override[k] ~= nil and override[k] or v
+            -- If user explicitly overrides (even with false or ""), use it.
+            if override[k] ~= nil then 
+                result[k] = override[k]
+            else
+                result[k] = v
+            end
         end
     end
     for k, v in pairs(override or {}) do
@@ -65,52 +63,144 @@ local function MergeTheme(base, override)
     return result
 end
 
-local function normalizeHUDTheme(theme, rawTheme)
-    if not theme or not theme.layout then
-        return theme
-    end
-
-    rawTheme = rawTheme or {}
-    if not theme.layout.iconAnchor then
-        theme.layout.iconAnchor = { point = "LEFT", relPoint = "LEFT", x = 0, y = 0 }
-    end
-
-    if not theme.layout.barAnchor then
-        theme.layout.barAnchor = { point = "LEFT", relPoint = "LEFT", x = theme.layout.iconSize + 4, y = 0 }
-    elseif not rawTheme.layout or not rawTheme.layout.barAnchor or rawTheme.layout.barAnchor.x == nil then
-        theme.layout.barAnchor.x = theme.layout.iconSize + 4
-    end
-
-    if not theme.layout.glyphAnchor then
-        theme.layout.glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 }
-    end
-
-    return theme
-end
-
+-- ═══ SECTION 1 — The Master Blueprint (THEME_BASE) ════════════════════════════
 ICN2.THEME_BASE = {
     layout = {
+        -- Visibility Flags
         showChrome = true,
         showHeader = true,
         showIcons  = true,
         showBars   = true,
         showGlyphs = true,
-        barWidth   = BASE_BAR_W,
-        barHeight  = BAR_H,
-        iconSize   = ICON_SIZE,
+        orientation = "vertical", -- "vertical" or "horizontal"
+
+        -- Global Spacing
+        chromePad    = 6,
+        headerHeight = 26,
+        barGap       = 8,
+
+        -- Element Dimensions
+        barWidth      = 200,
+        barHeight     = 20,
+        iconSize      = 20,
+        indicatorW    = 30,
+        glyphSize     = 16,          -- NEW: Indicator/glyph texture size
+        glyphPad      = 2,           -- NEW: Padding around glyph
+
+        -- Blocky Mode Settings
+        numBlocks   = 10,
+        blockGap    = 2,
+
+        -- Row Anchors (relative to their parent frame)
         iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 0, y = 0 },
-        barAnchor   = { point = "LEFT", relPoint = "LEFT", x = ICON_SIZE + 4, y = 0 },
+        barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 30, y = 0 },
         glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 },
+        
+        -- Header Buttons
+        headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -6, y = -4 },
+        headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 12, y = 0 },
+        headerBtnSize   = 24,
+        headerBtnGap    = 4,
+
+        -- Labels & Fonts
+        labelLeftAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },
+        labelRightAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -3, y = 0 },
+        fontFace         = "Fonts\\FRIZQT__.TTF",
+        fontSize         = 10,
+        fontFlags        = "OUTLINE",
     },
+    
     assets = {
-        fillTex = DEFAULT_FILL_TEX,
-        icons   = NEED_ICONS,
+        -- Bar Fill Textures (primary texture for smooth bars)
+        barBg       = { 0.12, 0.12, 0.12, 0.9 },  -- NEW: Default bar background color
+        barOverlay  = nil,                         -- NEW: Optional overlay texture
+        barFills = {
+            hunger  = ASSETS_PATH .. "ICN2_fill_hunger_bar.png",
+            thirst  = ASSETS_PATH .. "ICN2_fill_thirst_bar.png",
+            fatigue = ASSETS_PATH .. "ICN2_fill_fatigue_bar.png",
+        },
+        
+        -- Block Texture (for blocky mode)
+        blockTex = "Interface\\Buttons\\WHITE8X8",
+        
+        -- Row & Background Elements
+        rowBG       = nil,  -- Row background (spans icon + bar)
+        glyphBG     = nil,  -- Glyph/indicator background
+        
+        -- Need Icons
+        icons = {
+            hunger  = ASSETS_PATH .. "ICN2_hunger_chicken.png",
+            thirst  = ASSETS_PATH .. "ICN2_thirst.png",
+            fatigue = ASSETS_PATH .. "ICN2_fatigue.png",
+        },
+        
+        -- Status Indicators (NEW: Complete set in THEME_BASE for all themes to inherit)
+        indicators = {
+            stable = ASSETS_PATH .. "ICN2_paused.png",
+            up1    = ASSETS_PATH .. "ICN2_up_1.png",
+            up2    = ASSETS_PATH .. "ICN2_up_2.png",
+            up3    = ASSETS_PATH .. "ICN2_up_3.png",
+            down1  = ASSETS_PATH .. "ICN2_down_1.png",
+            down2  = ASSETS_PATH .. "ICN2_down_2.png",
+            down3  = ASSETS_PATH .. "ICN2_down_3.png",
+        },
+        
+        -- Header Buttons
+        headerBtns = {
+            btn1 = ASSETS_PATH .. "ICN2_details.png",
+            btn2 = ASSETS_PATH .. "ICN2_settings.png",
+            btn3 = ASSETS_PATH .. "ICN2_quick-rest.png",
+        }
     },
-    barColors = BLOCK_COLORS,
+    
+    chrome = {
+        bgCenter      = { 0.05, 0.05, 0.05, 0.88 },
+        cornerTL      = nil, cornerTR = nil,
+        cornerBL      = nil, cornerBR = nil,
+        edgeTop       = nil, edgeBottom = nil,
+        edgeLeft      = nil, edgeRight  = nil,
+        titleStrip    = nil,
+        cornerSize    = 8, 
+        edgeThickness = 4,
+    },
+    
+    colors = {
+        hunger  = { 0.2, 0.9, 0.2 },
+        thirst  = { 0.2, 0.5, 1.0 },
+        fatigue = { 1.0, 0.85, 0.1 },
+    }
 }
 
--- ═══ SECTION 1 — Theme descriptors ═════════════════════════════════════════════
+-- ═══ SECTION 2 — Custom Themes ════════════════════════════════════════════════
 ICN2.HUD_THEMES = {
+    colorful = {
+        id    = "colorful",
+        label = "Colorful (Default)",
+        mode  = "smooth",
+        layout = {
+            iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },
+            barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 33, y = 0 },
+            glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = 3, y = 0 },
+            headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -20, y = 0 },
+            headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 5, y = 0 },
+            headerBtnSize   = 16,
+            headerBtnGap    = 3,
+        },
+
+        chrome = {
+            bgCenter      = { 0.03, 0.03, 0.03, 0.65 },
+            cornerSize    = 6,
+            edgeThickness = 2,
+        },
+        assets = {
+            barBg = { 0.0, 0.0, 0.0, 0.0 },
+            barFills = {
+                hunger  = ASSETS_PATH .. "ICN2_fill_hunger_bar.png",
+                thirst  = ASSETS_PATH .. "ICN2_fill_thirst_bar.png",
+                fatigue = ASSETS_PATH .. "ICN2_fill_fatigue_bar.png",
+            },
+        },
+    },
 
     colorful = {
         id    = "colorful",
@@ -158,197 +248,144 @@ ICN2.HUD_THEMES = {
         id    = "smooth",
         label = "Smooth",
         mode  = "smooth",
+        layout = {
+            iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },
+            barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 33, y = 0 },
+            glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = 3, y = 0 },
+            headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -20, y = 0 },
+            headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 5, y = 0 },
+            headerBtnSize   = 16,
+            headerBtnGap    = 3,
+            iconSize   = 16,
+            barHeight  = 16,
+            glyphSize  = 14,
+        },
         chrome = {
-            bgCenter      = { 0.05, 0.05, 0.05, 0.88 },
-            cornerTL      = nil, cornerTR = nil,
-            cornerBL      = nil, cornerBR = nil,
-            edgeTop       = nil, edgeBottom = nil,
-            edgeLeft      = nil, edgeRight  = nil,
-            titleStrip    = nil,
-            cornerSize    = 8, edgeThickness = 4,
+            bgCenter   = { 0.0, 0.0, 0.0, 0.6 },
         },
-        bar = {
-            bg      = { 0.12, 0.12, 0.12, 0.9 },
-            fill    = DEFAULT_FILL_TEX,
-            overlay = nil,
+        assets = {
+            barBg = { 0.1, 0.1, 0.1, 0.85 },
+            barFills = {
+                hunger  = "Interface\\Buttons\\WHITE8X8",
+                thirst  = "Interface\\Buttons\\WHITE8X8",
+                fatigue = "Interface\\Buttons\\WHITE8X8",
+            },
         },
-        barColors = nil,
     },
 
     blocky = {
         id    = "blocky",
         label = "Blocky",
         mode  = "blocky",
-        chrome = {
-            bgCenter      = { 0.05, 0.05, 0.05, 0.88 },
-            cornerTL      = nil, cornerTR = nil,
-            cornerBL      = nil, cornerBR = nil,
-            edgeTop       = nil, edgeBottom = nil,
-            edgeLeft      = nil, edgeRight  = nil,
-            titleStrip    = nil,
-            cornerSize    = 8, edgeThickness = 4,
-        },
-        bar = {
-            bg      = { 0.12, 0.12, 0.12, 0.9 },
-            fill    = DEFAULT_FILL_TEX,
-            overlay = nil,
-        },
-        barColors = nil,
-    },
-
-    folk = {
-        id    = "folk",
-        label = "Folk  |cFF888888(WIP)|r",
-        mode  = "smooth",
-        chrome = {
-            bgCenter      = { 0.08, 0.05, 0.02, 0.92 },
-            cornerTL      = nil, cornerTR = nil,
-            cornerBL      = nil, cornerBR = nil,
-            edgeTop       = nil, edgeBottom = nil,
-            edgeLeft      = nil, edgeRight  = nil,
-            titleStrip    = nil,
-            cornerSize    = 8, edgeThickness = 4,
-        },
-        bar = {
-            overlay = nil,
-            bg      = { 0.10, 0.07, 0.04, 0.95 },
-            fill    = DEFAULT_FILL_TEX,
-        },
-        barColors = {
-            hunger  = { 0.85, 0.55, 0.15 },
-            thirst  = { 0.30, 0.65, 0.90 },
-            fatigue = { 0.70, 0.85, 0.30 },
+        layout = {
+            glyphSize = 14,
+            headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -20, y = 0 },
+            headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 5, y = 0 },
+            headerBtnSize   = 16,
+            headerBtnGap    = 3,
         },
     },
 
-    necromancer = {
-        id    = "necromancer",
-        label = "Necromancer  |cFF888888(WIP)|r",
+    vanguard = {
+        id    = "vanguard",
+        label = "Vanguard (Modern)",
         mode  = "smooth",
+        layout = {
+            showHeader = false,
+            iconSize   = PixelSnap(28),
+            barWidth   = PixelSnap(180),
+            barHeight  = PixelSnap(14), 
+            glyphSize  = PixelSnap(18),
+            iconAnchor = { point = "LEFT", relPoint = "LEFT", x = PixelSnap(12), y = 0 },
+            barAnchor  = { point = "LEFT", relPoint = "LEFT", x = PixelSnap(48), y = 0 },
+            glyphAnchor= { point = "RIGHT", relPoint = "RIGHT", x = PixelSnap(-12), y = 0 },
+            cornerSize = PixelSnap(12), edgeThickness = PixelSnap(12),
+        },
         chrome = {
-            bgCenter      = { 0.03, 0.03, 0.04, 0.96 },
-            cornerTL      = "Necrolord-NineSlice-CornerTopLeft", cornerTR = "Necrolord-NineSlice-CornerTopRight",
-            cornerBL      = nil, cornerBR = nil,
-            edgeTop       = nil, edgeBottom = nil,
-            edgeLeft      = "Necrolord-NineSlice-CornerBottomLeft", edgeRight  = "Necrolord-NineSlice-CornerBottomRight",
-            titleStrip    = "UI-Frame-Necrolord-Ribbon",
-            cornerSize    = 8,
-            edgeThickness = 4,
+            bgCenter   = { 0.05, 0.05, 0.06, 0.85 }, 
         },
-        bar = {
-            bg      = { 0.06, 0.06, 0.06, 0.98 },
-            fill    = DEFAULT_FILL_TEX,
-            overlay = "UI-Frame-Necrolord-TitleLeft",
-        },
-        barColors = {
-            hunger  = { 0.55, 0.85, 0.30 },
-            thirst  = { 0.50, 0.20, 0.80 },
-            fatigue = { 0.18, 0.18, 0.18 },
-        },
-    },
-
-    dastardly = {
-        id    = "dastardly",
-        label = "Dastardly",
-        mode  = "smooth",
         assets = {
-            icons = {
-                hunger  = ASSETS_PATH .. "dastardly_skull_hunger.png",
-                thirst  = ASSETS_PATH .. "dastardly_skull_thirst.png",
-                fatigue = ASSETS_PATH .. "dastardly_skull_fatigue.png",
-            }
+            barBg = { 0.08, 0.08, 0.08, 0.9 },
+            barFills = {
+                hunger  = "Interface\\Buttons\\WHITE8X8",
+                thirst  = "Interface\\Buttons\\WHITE8X8",
+                fatigue = "Interface\\Buttons\\WHITE8X8",
+            },
         },
-        chrome = {
-            bgCenter      = { 0.04, 0.04, 0.04, 0.92 },
-            cornerTL      = "UI-Frame-DastardlyDuos-CornerTopLeft",
-            cornerTR      = "UI-Frame-DastardlyDuos-CornerTopRight",
-            cornerBL      = "UI-Frame-DastardlyDuos-CornerBottomLeft",
-            cornerBR      = "UI-Frame-DastardlyDuos-CornerBottomRight",
-            edgeTop       = "UI-Frame-DastardlyDuos-Line-Top",
-            edgeBottom    = "UI-Frame-DastardlyDuos-Line-Bottom",
-            edgeLeft      = nil,
-            edgeRight     = nil,
-            titleStrip    = "UI-Frame-DastardlyDuos-Line-Top",
-            cornerSize    = 16,
-            edgeThickness = 8,
-        },
-        bar = {
-            overlay = "UI-Frame-DastardlyDuos-Bar-Frame-gold",
-            fill    = DEFAULT_FILL_TEX,
-            bg      = { 0.08, 0.06, 0.03, 0.95 },
-        },
-        barColors = {
-            hunger  = { 0.85, 0.55, 0.15 },
-            thirst  = { 0.30, 0.65, 0.90 },
-            fatigue = { 0.70, 0.85, 0.30 },
+        colors = {
+            hunger  = { 0.8, 0.5, 0.2 },  
+            thirst  = { 0.3, 0.6, 0.9 },
+            fatigue = { 0.6, 0.4, 0.8 }, 
         },
     },
+
+    minimalistV = {
+        id    = "minimalistV",
+        label = "Minimalist (Vertical)",
+        mode  = "minimalist",
+        layout = {
+            showChrome = false, showHeader = false, showBars = false, showGlyphs = true,
+            orientation = "vertical",
+            iconSize    = 32,
+            glyphSize   = 32,
+            glyphPad    = 4,
+            iconAnchor  = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
+            glyphAnchor = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
+            labelLeftAnchor  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 0, y = 0 },
+            labelRightAnchor = { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 0, y = 0 },
+            fontFace = "Fonts\\ARIALN.ttf",
+            fontSize = 10,
+        },
+    },
+
+    minimalistH = {
+        id    = "minimalistH",
+        label = "Minimalist (Horizontal)",
+        mode  = "minimalist",
+        layout = {
+            showChrome = false, showHeader = false, showBars = false, showGlyphs = true,
+            orientation = "horizontal",
+            iconSize    = 32,
+            glyphSize   = 32,
+            glyphPad    = 4,
+            iconAnchor  = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
+            glyphAnchor = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
+            labelLeftAnchor  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 0, y = 0 },
+            labelRightAnchor = { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 0, y = 0 },
+            fontFace = "Fonts\\ARIALN.ttf",
+            fontSize = 10,
+        },
+    }
 }
 
 ICN2.HUD_THEME_LIST = {
     ICN2.HUD_THEMES.colorful,
-    ICN2.HUD_THEMES.minimalist,
     ICN2.HUD_THEMES.smooth,
     ICN2.HUD_THEMES.blocky,
-    ICN2.HUD_THEMES.folk,
-    ICN2.HUD_THEMES.necromancer,
-    ICN2.HUD_THEMES.dastardly,
+    -- ICN2.HUD_THEMES.vanguard,
+    ICN2.HUD_THEMES.minimalistV,
+    ICN2.HUD_THEMES.minimalistH,
 }
 
-local function getTheme()
-    local id = ICN2DB and ICN2DB.settings and ICN2DB.settings.barTheme or "colorful"
-    return ICN2.HUD_THEMES[id] or ICN2.HUD_THEMES.colorful
+local function getTheme(themeId)
+    local id = themeId or (ICN2DB and ICN2DB.settings and ICN2DB.settings.barTheme) or "colorful"
+    local custom = ICN2.HUD_THEMES[id] or ICN2.HUD_THEMES.colorful
+    return MergeTheme(ICN2.THEME_BASE, custom)
 end
 
-local function getMergedHUDTheme(themeId)
-    local rawTheme = ICN2.HUD_THEMES[themeId] or ICN2.HUD_THEMES.colorful
-    local merged = MergeTheme(ICN2.THEME_BASE, rawTheme)
-    merged = normalizeHUDTheme(merged, rawTheme)
-    merged.id = rawTheme.id
-    merged.label = rawTheme.label
-    merged.mode = rawTheme.mode
-    return merged, rawTheme
+-- ══ SECTION 3 — Helper Functions ═══════════════════════════════════════════════
+local function shouldPulse(assetPath, theme)  
+    return assetPath ~= theme.assets.indicators.stable  
 end
-
--- Public helper: return theme descriptor by id (used by options UI)
-function ICN2:GetHUDTheme(id)
-    if not id then return getTheme() end
-    return ICN2.HUD_THEMES[id] or getTheme()
-end
-
--- ══ SECTION 2 — Indicator logic ════════════════════════════════════════════════
-local IND_FASTER_UP   =  0.278
-local IND_FAST_UP     =  0.167
-local IND_FAST_DOWN   = -0.050
-local IND_FASTER_DOWN = -0.100
-local STABLE_EPSILON  =  0.002
-
-local INDICATORS = {
-    stable = ASSETS_PATH .. "inc2_paused_icon.png",
-    up1    = ASSETS_PATH .. "inc2_1up-green_icon.png",
-    up2    = ASSETS_PATH .. "inc2_2up-green_icon.png",
-    up3    = ASSETS_PATH .. "inc2_3up_green_icon.png",
-    down1  = ASSETS_PATH .. "inc2_1down-red_icon.png",
-    down2  = ASSETS_PATH .. "inc2_2down-red_icon.png",
-    down3  = ASSETS_PATH .. "inc2_3down-red_icon.png",
-}
-
-local PULSE_PERIOD = 2.0
-local PULSE_MIN    = 0.25
-local PULSE_MAX    = 1.0
-
-local function shouldPulse(assetPath)  return assetPath ~= INDICATORS.stable  end
 
 local function getSelectedPalette()
     local paletteId = ICN2DB and ICN2DB.settings and ICN2DB.settings.colorPalette or "Default"
     return ICN2.Palettes and ICN2.Palettes[paletteId]
 end
 
-local function getNeedColor(key, val) -- returns r,g,b in 0..1 range
-    -- If using custom image assets in colorful theme, don't overlay threshold colors unless critical
-    local currentTheme = getTheme().id
-    if currentTheme == "colorful" and val > ICN2.THRESHOLDS.critical then
-        return 1, 1, 1 -- Keep texture un-tinted so the graphic shows properly
+local function getNeedColor(key, val, theme)
+    if theme.id == "colorful" and val > ICN2.THRESHOLDS.critical then
+        return 1, 1, 1 
     end
 
     if val <= ICN2.THRESHOLDS.critical then return 0.9, 0.1, 0.1
@@ -357,57 +394,37 @@ local function getNeedColor(key, val) -- returns r,g,b in 0..1 range
         local paletteId = ICN2DB and ICN2DB.settings and ICN2DB.settings.colorPalette or "Default"
         local palette = (paletteId ~= "Default") and getSelectedPalette() or nil
         local fc = palette and palette[key]
-        if fc then
-            return fc[1], fc[2], fc[3]
-        end
-
-        local theme = getTheme()
-        fc = (theme.barColors and theme.barColors[key]) or BLOCK_COLORS[key]
-        return fc[1], fc[2], fc[3]
+        if fc then return fc[1], fc[2], fc[3] end
+        
+        local tc = theme.colors and theme.colors[key]
+        if tc then return tc[1], tc[2], tc[3] end
+        
+        return 1, 1, 1
     end
 end
 
-local function getIndicatorAsset(rate)
-    if math.abs(rate) <= STABLE_EPSILON then return INDICATORS.stable, 1, 1, 1
-    elseif rate >= IND_FASTER_UP        then return INDICATORS.up3,   1, 1, 1
-    elseif rate >= IND_FAST_UP          then return INDICATORS.up2,   1, 1, 1
-    elseif rate >  0                    then return INDICATORS.up1,   1, 1, 1
-    elseif rate <= IND_FASTER_DOWN      then return INDICATORS.down3, 1, 1, 1
-    elseif rate <= IND_FAST_DOWN        then return INDICATORS.down2, 1, 1, 1
-    else                                     return INDICATORS.down1, 1, 1, 1
+local function getIndicatorAsset(rate, theme)
+    local ind = theme.assets.indicators
+    if math.abs(rate) <= STABLE_EPSILON then return ind.stable, 1, 1, 1
+    elseif rate >= IND_FASTER_UP        then return ind.up3,   1, 1, 1
+    elseif rate >= IND_FAST_UP          then return ind.up2,   1, 1, 1
+    elseif rate >  0                    then return ind.up1,   1, 1, 1
+    elseif rate <= IND_FASTER_DOWN      then return ind.down3, 1, 1, 1
+    elseif rate <= IND_FAST_DOWN        then return ind.down2, 1, 1, 1
+    else                                     return ind.down1, 1, 1, 1
     end
 end
 
-local function applyThemePadding(theme)
-    if not hudFrame or not headerFrame or not contentFrame then return end
-
-    local c = (theme and theme.chrome) or {}
-    local edgeThick = c.edgeThickness or 4
-    local contentPad = math.max(CHROME_PAD, edgeThick + 2)
-
-    if theme and theme.layout and theme.layout.showHeader then
-        headerFrame:Show()
-        headerFrame:ClearAllPoints()
-        headerFrame:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", contentPad, -contentPad)
-        headerFrame:SetPoint("TOPRIGHT", hudFrame, "TOPRIGHT", -contentPad, -contentPad)
-        contentFrame:ClearAllPoints()
-        contentFrame:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -4)
-    else
-        headerFrame:Hide()
-        contentFrame:ClearAllPoints()
-        contentFrame:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", contentPad, -contentPad)
-    end
-
-    contentFrame:SetPoint("BOTTOMRIGHT", hudFrame, "BOTTOMRIGHT", -contentPad, contentPad)
-end
-
--- ══ SECTION 3 — Texture slot helper ════════════════════════════════════════════
 local function applyTexSlot(tex, value)
     if not tex then return end
-    if value == nil then
+    if value == nil or value == false or value == "" then
         tex:Hide()
     elseif type(value) == "string" then
-        tex:SetAtlas(value, true)
+        if string.find(value, "\\") then
+            tex:SetTexture(value)
+        else
+            tex:SetAtlas(value, true)
+        end
         tex:Show()
     elseif type(value) == "table" then
         tex:SetColorTexture(value[1], value[2], value[3], value[4] or 1)
@@ -415,18 +432,12 @@ local function applyTexSlot(tex, value)
     end
 end
 
--- ══  SECTION 4 — Build HUD  ════════════════════════════════════════════════════
+-- ══  SECTION 4 — Build HUD (Creation ONLY)  ════════════════════════════════════
 function ICN2:BuildHUD()
-    local s        = ICN2DB.settings
-    local barScale = s.hudBarScale or 1.0
-    local barW     = math.floor(BASE_BAR_W * barScale)
-    local innerW   = ICON_SIZE + 4 + barW + INDICATOR_W
-    local frameW   = innerW + CHROME_PAD * 2 + 8
-    local frameH   = HEADER_H + (#NEED_KEYS * (BAR_H + BAR_GAP)) + CHROME_PAD * 2
+    local s = ICN2DB.settings
 
-    -- ── Root frame ────────────────────────────────────────────────────────────
+    -- Root frame
     hudFrame = CreateFrame("Frame", "ICN2HUDFrame", UIParent)
-    hudFrame:SetSize(frameW, frameH)
     hudFrame:SetFrameStrata("MEDIUM")
     hudFrame:SetClampedToScreen(true)
 
@@ -440,9 +451,7 @@ function ICN2:BuildHUD()
     hudFrame:EnableMouse(true)
     hudFrame:SetMovable(true)
     hudFrame:RegisterForDrag("LeftButton")
-    hudFrame:SetScript("OnDragStart", function(self)
-        if not ICN2DB.settings.hudLocked then self:StartMoving() end
-    end)
+    hudFrame:SetScript("OnDragStart", function(self) if not ICN2DB.settings.hudLocked then self:StartMoving() end end)
     hudFrame:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
         local point, _, relPoint, x, y = self:GetPoint()
@@ -464,165 +473,87 @@ function ICN2:BuildHUD()
     end)
     hudFrame:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    -- ── Nine-slice chrome slots ──────────────────────────────────────────────
+    -- Chrome slots
     chrome.bgCenter = hudFrame:CreateTexture(nil, "BACKGROUND")
-    chrome.bgCenter:SetAllPoints()
-    chrome.bgCenter:Hide()
+    for _, slot in ipairs({ "cornerTL", "cornerTR", "cornerBL", "cornerBR", "edgeTop", "edgeBottom", "edgeLeft", "edgeRight", "titleStrip" }) do
+        chrome[slot] = hudFrame:CreateTexture(nil, "BORDER")
+    end
+    chrome.titleStrip:SetDrawLayer("ARTWORK")
 
-    local cornerAnchors = {
-        cornerTL = { "TOPLEFT",     "TOPLEFT"     },
-        cornerTR = { "TOPRIGHT",    "TOPRIGHT"    },
-        cornerBL = { "BOTTOMLEFT",  "BOTTOMLEFT"  },
-        cornerBR = { "BOTTOMRIGHT", "BOTTOMRIGHT" },
-    }
-    for slot, anchors in pairs(cornerAnchors) do
-        local tex = hudFrame:CreateTexture(nil, "BORDER")
-        tex:SetPoint(anchors[1], hudFrame, anchors[2], 0, 0)
-        tex:Hide()
-        chrome[slot] = tex
+    -- Header
+    headerFrame = CreateFrame("Frame", nil, hudFrame)
+    headerFrame.title = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    headerFrame.title:SetText(L["HUD_TITLE"])
+
+    for i = 1, 3 do
+        local btn
+        if i == 3 then
+            btn = CreateFrame("Button", nil, headerFrame, "SecureActionButtonTemplate")
+            btn:SetAttribute("type", "spell")
+            btn:SetAttribute("spell", 1231411)
+            btn:SetAttribute("useOnKeyDown", false)
+            btn:RegisterForClicks("AnyUp", "AnyDown")
+        else
+            btn = CreateFrame("Button", nil, headerFrame)
+        end
+
+        btn.tex = btn:CreateTexture(nil, "ARTWORK")
+        btn.tex:SetAllPoints()
+        headerBtns[i] = btn
     end
 
-    chrome.edgeTop = hudFrame:CreateTexture(nil, "BORDER")
-    chrome.edgeTop:SetPoint("TOPLEFT",  hudFrame, "TOPLEFT",  0, 0)
-    chrome.edgeTop:SetPoint("TOPRIGHT", hudFrame, "TOPRIGHT", 0, 0)
-    chrome.edgeTop:Hide()
+    headerBtns[1]:SetScript("OnClick", function() ICN2:PrintDetails() end)
+    headerBtns[2]:SetScript("OnClick", function() ICN2:ToggleOptions() end)
 
-    chrome.edgeBottom = hudFrame:CreateTexture(nil, "BORDER")
-    chrome.edgeBottom:SetPoint("BOTTOMLEFT",  hudFrame, "BOTTOMLEFT",  0, 0)
-    chrome.edgeBottom:SetPoint("BOTTOMRIGHT", hudFrame, "BOTTOMRIGHT", 0, 0)
-    chrome.edgeBottom:Hide()
-
-    chrome.edgeLeft = hudFrame:CreateTexture(nil, "BORDER")
-    chrome.edgeLeft:SetPoint("TOPLEFT",    hudFrame, "TOPLEFT",    0, 0)
-    chrome.edgeLeft:SetPoint("BOTTOMLEFT", hudFrame, "BOTTOMLEFT", 0, 0)
-    chrome.edgeLeft:Hide()
-
-    chrome.edgeRight = hudFrame:CreateTexture(nil, "BORDER")
-    chrome.edgeRight:SetPoint("TOPRIGHT",    hudFrame, "TOPRIGHT",    0, 0)
-    chrome.edgeRight:SetPoint("BOTTOMRIGHT", hudFrame, "BOTTOMRIGHT", 0, 0)
-    chrome.edgeRight:Hide()
-
-    chrome.titleStrip = hudFrame:CreateTexture(nil, "ARTWORK")
-    chrome.titleStrip:SetPoint("TOPLEFT",  hudFrame, "TOPLEFT",  0, 0)
-    chrome.titleStrip:SetPoint("TOPRIGHT", hudFrame, "TOPRIGHT", 0, 0)
-    chrome.titleStrip:SetHeight(HEADER_H)
-    chrome.titleStrip:Hide()
-
-    -- ── Header ────────────────────────────────────────────────────────────────
-    headerFrame = CreateFrame("Frame", nil, hudFrame)
-    headerFrame:SetHeight(HEADER_H)
-
-    local title = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("LEFT", headerFrame, "LEFT", 4, 0)
-    title:SetText(L["HUD_TITLE"])
-
-    local btnOptions = CreateFrame("Button", nil, headerFrame)
-    btnOptions:SetSize(20, 20)
-    btnOptions:SetPoint("RIGHT", headerFrame, "RIGHT", -2, 0)
-    local bOptTex = btnOptions:CreateTexture(nil, "ARTWORK")
-    bOptTex:SetAllPoints()
-    bOptTex:SetAtlas("glues-characterSelect-icon-notify-inProgress-hover")
-    btnOptions:SetScript("OnClick", function() ICN2:ToggleOptions() end)
-
-    local btnDetails = CreateFrame("Button", nil, headerFrame)
-    btnDetails:SetSize(20, 20)
-    btnDetails:SetPoint("RIGHT", btnOptions, "LEFT", -2, 0)
-    local bDetTex = btnDetails:CreateTexture(nil, "ARTWORK")
-    bDetTex:SetAllPoints()
-    bDetTex:SetAtlas("loreobject-32x32")
-    btnDetails:SetScript("OnClick", function() ICN2:PrintDetails() end)
-
-    -- ── Content area ──────────────────────────────────────────────────────────
+    -- Content
     contentFrame = CreateFrame("Frame", nil, hudFrame)
-
-    -- ── Need rows ─────────────────────────────────────────────────────────────
-    for i, key in ipairs(NEED_KEYS) do
-        local fc   = BLOCK_COLORS[key]
-        local rowY = -((i - 1) * (BAR_H + BAR_GAP)) - 4
-
+    
+    for _, key in ipairs(NEED_KEYS) do
         local rowFrame = CreateFrame("Frame", "ICN2Row_" .. key, contentFrame)
-        rowFrame:SetSize(innerW, BAR_H)
-        rowFrame:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", CHROME_PAD - 2, rowY)
-
-        -- Need icon
         local icon = rowFrame:CreateTexture(nil, "ARTWORK")
-        icon:SetSize(ICON_SIZE, ICON_SIZE)
-        icon:SetPoint("LEFT", rowFrame, "LEFT", 0, 0)
-        icon:SetTexture(NEED_ICONS[key])
         icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
-        -- Bar container frame
+        local rowBG = rowFrame:CreateTexture(nil, "BACKGROUND")
+        
         local barFrame = CreateFrame("Frame", "ICN2BarFrame_" .. key, rowFrame)
-        barFrame:SetSize(barW, BAR_H)
-        barFrame:SetPoint("LEFT", rowFrame, "LEFT", ICON_SIZE + 4, 0)
-
-        -- Bar background track
+        
         local barBG = barFrame:CreateTexture(nil, "BACKGROUND")
         barBG:SetAllPoints()
-        barBG:SetColorTexture(0.12, 0.12, 0.12, 0.9)
-
-        -- Animated fill
+        
         local barFill = CreateFrame("StatusBar", "ICN2BarFill_" .. key, barFrame)
         barFill:SetAllPoints()
         barFill:SetMinMaxValues(0, 100)
         barFill:SetValue(100)
-        barFill:SetStatusBarTexture(DEFAULT_FILL_TEX)
-        barFill:SetStatusBarColor(fc[1], fc[2], fc[3])
 
-        -- Percentage label
         local barLabelLeft = barFill:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        barLabelLeft:SetPoint("LEFT", barFill, "LEFT", 3, 0)
-        barLabelLeft:SetText("")
-        barLabelLeft:Hide()
-
         local barLabelRight = barFill:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        barLabelRight:SetPoint("RIGHT", barFill, "RIGHT", -3, 0)
-        barLabelRight:SetText("")
-        barLabelRight:Hide()
-
-        -- Decorative overlay above fill
+        
         local barOverlay = barFrame:CreateTexture(nil, "OVERLAY")
         barOverlay:SetAllPoints()
-        barOverlay:Hide()
 
-        -- ── Blocky blocks ──────────────────────────────────────────────────────
-        local blockFrames = {}
-
-        for b = 1, NUM_BLOCKS do
-            local blockW = (barW - (BLOCK_GAP * (NUM_BLOCKS - 1))) / NUM_BLOCKS
-            local bx = (b - 1) * (blockW + BLOCK_GAP)
-
-            local fillTex = barFrame:CreateTexture(nil, "OVERLAY")
-            fillTex:SetSize(blockW, BAR_H)
-            fillTex:SetPoint("LEFT", barFrame, "LEFT", bx, 0)
-            fillTex:SetTexture("Interface\\Buttons\\WHITE8X8")
-            fillTex:SetVertexColor(fc[1], fc[2], fc[3], 0.95)
-            fillTex:Hide()
-
-            blockFrames[b] = { fill = fillTex }
-        end
-
-        -- ── Glyph indicator + pulse ────────────────────────────────────────────
         local glyphTex = rowFrame:CreateTexture(nil, "OVERLAY")
-        glyphTex:SetSize(16, 16)
-        glyphTex:SetPoint("RIGHT", rowFrame, "RIGHT", -2, 0)
-        glyphTex:SetAlpha(1.0)
+        local indBG = rowFrame:CreateTexture(nil, "BACKGROUND")
+        indBG:SetPoint("CENTER", glyphTex, "CENTER", 0, 0)
+        indBG:SetSize(32, 32)
 
-        local pulseFrame   = CreateFrame("Frame", nil, rowFrame)
+        local pulseFrame = CreateFrame("Frame", nil, rowFrame)
         local pulseElapsed = 0
         local pulseRunning = false
-
         pulseFrame:SetScript("OnUpdate", function(_, dt)
             if not pulseRunning then return end
             pulseElapsed = pulseElapsed + dt
             local t = (pulseElapsed % PULSE_PERIOD) / PULSE_PERIOD
-            local a = PULSE_MIN + (PULSE_MAX - PULSE_MIN)
-                      * (0.5 + 0.5 * math.sin(t * math.pi * 2 - math.pi / 2))
+            local a = PULSE_MIN + (PULSE_MAX - PULSE_MIN) * (0.5 + 0.5 * math.sin(t * math.pi * 2 - math.pi / 2))
             glyphTex:SetAlpha(a)
         end)
 
+        -- RowBG depends on Icon and BarFrame, so we'll link them structurally here
+        rowBG:SetPoint("TOPLEFT", icon, "TOPLEFT", -4, 4)
+        rowBG:SetPoint("BOTTOMRIGHT", barFrame, "BOTTOMRIGHT", 4, -4)
+
         bars[key] = {
             rowFrame      = rowFrame,
+            rowBG         = rowBG,
             icon          = icon,
             barFrame      = barFrame,
             barBG         = barBG,
@@ -630,8 +561,9 @@ function ICN2:BuildHUD()
             barOverlay    = barOverlay,
             barLabelLeft  = barLabelLeft,
             barLabelRight = barLabelRight,
-            blocks        = blockFrames,
+            blocks        = {}, -- Generated dynamically in Apply
             glyphTex      = glyphTex,
+            indBG         = indBG,
             setPulse      = function(active)
                 pulseRunning = active
                 if not active then
@@ -642,214 +574,264 @@ function ICN2:BuildHUD()
         }
     end
 
-    -- Apply saved state
     hudFrame:SetAlpha(s.hudAlpha or 1.0)
     hudFrame:SetScale(s.hudScale or 1.0)
 
-    -- Set Colorful as the standard base fallback for initial migration steps
-    if not s.barTheme then
-        s.barTheme = "colorful"
-    end
+    if not s.barTheme then s.barTheme = "colorful" end
     ICN2:ApplyHUDTheme(s.barTheme)
     if not s.hudEnabled then hudFrame:Hide() end
 end
 
--- ═══ SECTION 5 — Theme application ══════════════════════════════════════════
+-- ═══ SECTION 5 — Theme Engine (Layout & Styling) ══════════════════════════════
 function ICN2:ApplyHUDTheme(themeId)
     if not hudFrame then return end
-
-    local theme, rawTheme = getMergedHUDTheme(themeId)
-    ICN2DB.settings.barTheme   = theme.id
+    
+    local theme = getTheme(themeId)
+    ICN2DB.settings.barTheme = theme.id
     ICN2DB.settings.blockyBars = (theme.mode == "blocky")
 
-    local layout      = theme.layout or {}
-    local c           = theme.chrome or {}
-    local cornerSize  = c.cornerSize    or 8
-    local edgeThick   = c.edgeThickness or 4
-    local showChrome  = layout.showChrome ~= false
-    local showHeader  = layout.showHeader ~= false
-    local showIcons   = layout.showIcons  ~= false
-    local showBars    = layout.showBars   ~= false
-    local showGlyphs  = layout.showGlyphs ~= false
-    local iconSize    = layout.iconSize   or ICON_SIZE
-    local barWidth    = layout.barWidth   or BASE_BAR_W
-    local barHeight   = layout.barHeight  or BAR_H
-    local iconAnchor  = layout.iconAnchor or { point = "LEFT", relPoint = "LEFT", x = 0, y = 0 }
-    local barAnchor   = layout.barAnchor  or { point = "LEFT", relPoint = "LEFT", x = iconSize + 4, y = 0 }
-    local glyphAnchor = layout.glyphAnchor or { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 }
-
-    -- Background
-    applyTexSlot(chrome.bgCenter, showChrome and c.bgCenter or nil)
-
-    -- Corners
-    for _, slot in ipairs({ "cornerTL", "cornerTR", "cornerBL", "cornerBR" }) do
-        chrome[slot]:SetSize(cornerSize, cornerSize)
-        applyTexSlot(chrome[slot], showChrome and c[slot] or nil)
+    local layout = theme.layout
+    local barScale = ICN2DB.settings.hudBarScale or 1.0
+    local barWidth = math.floor(layout.barWidth * barScale)
+    
+    -- Size HUD Frame mathematically based on theme flags
+    local contentW = layout.iconSize + 4 + barWidth + layout.indicatorW
+    if layout.orientation == "horizontal" and theme.mode == "minimalist" then
+        contentW = layout.barHeight + layout.barGap
+    end
+    
+    local frameW = contentW + layout.chromePad * 2 + 8
+    if layout.orientation == "horizontal" then
+        frameW = (#NEED_KEYS * contentW) + layout.chromePad * 2
     end
 
-    -- Edges
-    chrome.edgeTop:SetHeight(edgeThick)
-    applyTexSlot(chrome.edgeTop, showChrome and c.edgeTop or nil)
+    local frameH = (#NEED_KEYS * (layout.barHeight + layout.barGap)) + layout.chromePad * 2
+    if layout.orientation == "horizontal" then
+        frameH = layout.barHeight + layout.chromePad * 2
+    end
+    if layout.showHeader then frameH = frameH + layout.headerHeight end
 
-    chrome.edgeBottom:SetHeight(edgeThick)
-    applyTexSlot(chrome.edgeBottom, showChrome and c.edgeBottom or nil)
+    hudFrame:SetSize(frameW, frameH)
 
-    chrome.edgeLeft:SetWidth(edgeThick)
-    applyTexSlot(chrome.edgeLeft, showChrome and c.edgeLeft or nil)
+    -- Apply Chrome
+    if layout.showChrome then
+        local c = theme.chrome
+        applyTexSlot(chrome.bgCenter, c.bgCenter)
+        chrome.bgCenter:SetAllPoints()
 
-    chrome.edgeRight:SetWidth(edgeThick)
-    applyTexSlot(chrome.edgeRight, showChrome and c.edgeRight or nil)
+        local cs = c.cornerSize
+        chrome.cornerTL:SetSize(cs, cs); chrome.cornerTL:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", 0, 0)
+        chrome.cornerTR:SetSize(cs, cs); chrome.cornerTR:SetPoint("TOPRIGHT", hudFrame, "TOPRIGHT", 0, 0)
+        chrome.cornerBL:SetSize(cs, cs); chrome.cornerBL:SetPoint("BOTTOMLEFT", hudFrame, "BOTTOMLEFT", 0, 0)
+        chrome.cornerBR:SetSize(cs, cs); chrome.cornerBR:SetPoint("BOTTOMRIGHT", hudFrame, "BOTTOMRIGHT", 0, 0)
+        applyTexSlot(chrome.cornerTL, c.cornerTL); applyTexSlot(chrome.cornerTR, c.cornerTR)
+        applyTexSlot(chrome.cornerBL, c.cornerBL); applyTexSlot(chrome.cornerBR, c.cornerBR)
 
-    -- Title strip
-    applyTexSlot(chrome.titleStrip, showChrome and c.titleStrip or nil)
+        local et = c.edgeThickness
+        chrome.edgeTop:SetHeight(et); chrome.edgeTop:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", 0, 0); chrome.edgeTop:SetPoint("TOPRIGHT", hudFrame, "TOPRIGHT", 0, 0)
+        chrome.edgeBottom:SetHeight(et); chrome.edgeBottom:SetPoint("BOTTOMLEFT", hudFrame, "BOTTOMLEFT", 0, 0); chrome.edgeBottom:SetPoint("BOTTOMRIGHT", hudFrame, "BOTTOMRIGHT", 0, 0)
+        chrome.edgeLeft:SetWidth(et); chrome.edgeLeft:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", 0, 0); chrome.edgeLeft:SetPoint("BOTTOMLEFT", hudFrame, "BOTTOMLEFT", 0, 0)
+        chrome.edgeRight:SetWidth(et); chrome.edgeRight:SetPoint("TOPRIGHT", hudFrame, "TOPRIGHT", 0, 0); chrome.edgeRight:SetPoint("BOTTOMRIGHT", hudFrame, "BOTTOMRIGHT", 0, 0)
+        applyTexSlot(chrome.edgeTop, c.edgeTop); applyTexSlot(chrome.edgeBottom, c.edgeBottom)
+        applyTexSlot(chrome.edgeLeft, c.edgeLeft); applyTexSlot(chrome.edgeRight, c.edgeRight)
 
-    applyThemePadding(theme)
+        chrome.titleStrip:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", 0, 0)
+        chrome.titleStrip:SetPoint("TOPRIGHT", hudFrame, "TOPRIGHT", 0, 0)
+        chrome.titleStrip:SetHeight(layout.headerHeight)
+        applyTexSlot(chrome.titleStrip, c.titleStrip)
+    else
+        for _, tex in pairs(chrome) do tex:Hide() end
+    end
 
-    -- Per-bar slots
-    local barDef     = theme.bar or {}
-    local barBGColor = barDef.bg   or { 0.12, 0.12, 0.12, 0.9 }
-    local fillTex    = barDef.fill or theme.assets.fillTex or DEFAULT_FILL_TEX
+    -- Header Alignment
+    if layout.showHeader then
+        headerFrame:Show()
+        headerFrame:SetHeight(layout.headerHeight)
+        local cp = math.max(layout.chromePad, theme.chrome.edgeThickness + 2)
+        headerFrame:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", cp, -cp)
+        headerFrame:SetPoint("TOPRIGHT", hudFrame, "TOPRIGHT", -cp, -cp)
+        
+        local titleAnchor = layout.headerTitleAnchor or { point = "LEFT", relPoint = "LEFT", x = 12, y = 0 }
+        headerFrame.title:ClearAllPoints()
+        headerFrame.title:SetPoint(titleAnchor.point, headerFrame, titleAnchor.relPoint, titleAnchor.x, titleAnchor.y)
 
+        local hAnchor = layout.headerBtnAnchor
+        headerBtns[2]:SetSize(layout.headerBtnSize, layout.headerBtnSize)
+        headerBtns[2]:ClearAllPoints()
+        headerBtns[2]:SetPoint(hAnchor.point, headerFrame, hAnchor.relPoint, hAnchor.x, hAnchor.y)
+        applyTexSlot(headerBtns[2].tex, theme.assets.headerBtns.btn2)
+
+        headerBtns[1]:SetSize(layout.headerBtnSize, layout.headerBtnSize)
+        headerBtns[1]:ClearAllPoints()
+        headerBtns[1]:SetPoint("RIGHT", headerBtns[2], "LEFT", -layout.headerBtnGap, 0)
+        applyTexSlot(headerBtns[1].tex, theme.assets.headerBtns.btn1)
+
+        headerBtns[3]:SetSize(layout.headerBtnSize, layout.headerBtnSize)
+        headerBtns[3]:ClearAllPoints()
+        headerBtns[3]:SetPoint("LEFT", headerBtns[2], "RIGHT", layout.headerBtnGap, 0)
+        applyTexSlot(headerBtns[3].tex, theme.assets.headerBtns.btn3)
+        
+        contentFrame:ClearAllPoints()
+        contentFrame:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -4)
+    else
+        headerFrame:Hide()
+        contentFrame:ClearAllPoints()
+        local cp = math.max(layout.chromePad, theme.chrome.edgeThickness + 2)
+        contentFrame:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", cp, -cp)
+    end
+
+    -- Size contentFrame to contain all rows
+    local contentFrameW, contentFrameH
+    if layout.orientation == "horizontal" then
+        contentFrameW = (#NEED_KEYS * contentW) + ((#NEED_KEYS - 1) * layout.barGap)
+        contentFrameH = layout.barHeight
+    else
+        contentFrameW = contentW
+        contentFrameH = (#NEED_KEYS * layout.barHeight) + ((#NEED_KEYS - 1) * layout.barGap)
+    end
+    contentFrame:SetSize(contentFrameW, contentFrameH)
+
+    -- Apply Rows
     for i, key in ipairs(NEED_KEYS) do
         local data = bars[key]
         if data then
-            local rowWidth = iconSize + 4 + (showBars and barWidth or 0) + (showGlyphs and INDICATOR_W or 0) + 8
-            local rowY = -((i - 1) * (barHeight + BAR_GAP)) - 4
-
-            data.rowFrame:SetSize(rowWidth, barHeight)
+            local rowX = (layout.orientation == "horizontal") and ((i - 1) * (contentW + layout.barGap)) or 0
+            local rowY = (layout.orientation == "horizontal") and -4 or -((i - 1) * (layout.barHeight + layout.barGap)) - 4
+            
+            data.rowFrame:SetSize(contentW, layout.barHeight)
             data.rowFrame:ClearAllPoints()
-            data.rowFrame:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", CHROME_PAD - 2, rowY)
-
-            -- ICONS
-            if showIcons then
+            data.rowFrame:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", rowX, rowY)
+            
+            -- Icon
+            if layout.showIcons then
                 data.icon:Show()
-                data.icon:SetSize(iconSize, iconSize)
+                data.icon:SetSize(layout.iconSize, layout.iconSize)
                 data.icon:ClearAllPoints()
-                data.icon:SetPoint(iconAnchor.point, data.rowFrame, iconAnchor.relPoint, iconAnchor.x, iconAnchor.y)
-                data.icon:SetTexture((theme.assets and theme.assets.icons and theme.assets.icons[key]) or NEED_ICONS[key])
-                data.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+                data.icon:SetPoint(layout.iconAnchor.point, data.rowFrame, layout.iconAnchor.relPoint, layout.iconAnchor.x, layout.iconAnchor.y)
+                data.icon:SetTexture(theme.assets.icons[key])
             else
                 data.icon:Hide()
             end
 
-            -- BARS
-            data.barFrame:SetSize(barWidth, barHeight)
-            data.barFrame:ClearAllPoints()
-            data.barFrame:SetPoint(barAnchor.point, data.rowFrame, barAnchor.relPoint, barAnchor.x, barAnchor.y)
-            if showBars then
+            -- Backgrounds
+            if theme.assets.rowBG then applyTexSlot(data.rowBG, theme.assets.rowBG) else data.rowBG:Hide() end
+            if theme.assets.glyphBG then applyTexSlot(data.indBG, theme.assets.glyphBG) else data.indBG:Hide() end
+            
+            -- Bar Framework
+            if layout.showBars then
                 data.barFrame:Show()
-                if type(barBGColor) == "string" then
-                    if string.find(barBGColor, "\\") then
-                        data.barBG:SetTexture(barBGColor)
-                    else
-                        data.barBG:SetAtlas(barBGColor, true)
+                data.barFrame:SetSize(barWidth, layout.barHeight)
+                data.barFrame:ClearAllPoints()
+                data.barFrame:SetPoint(layout.barAnchor.point, data.rowFrame, layout.barAnchor.relPoint, layout.barAnchor.x, layout.barAnchor.y)
+                
+                applyTexSlot(data.barBG, theme.assets.barBg)
+                data.barBG:SetAllPoints()
+
+                if theme.assets.barOverlay then applyTexSlot(data.barOverlay, theme.assets.barOverlay) else data.barOverlay:Hide() end
+                
+                local fillTex = theme.assets.barFills and theme.assets.barFills[key] or theme.assets.barFills.hunger
+                data.barFill:SetStatusBarTexture(fillTex)
+                
+                -- Fonts
+                data.barLabelLeft:SetFont(layout.fontFace, layout.fontSize, layout.fontFlags)
+                data.barLabelRight:SetFont(layout.fontFace, layout.fontSize, layout.fontFlags)
+                data.barLabelLeft:ClearAllPoints()
+                data.barLabelRight:ClearAllPoints()
+                data.barLabelLeft:SetPoint(layout.labelLeftAnchor.point, data.barFrame, layout.labelLeftAnchor.relPoint, layout.labelLeftAnchor.x, layout.labelLeftAnchor.y)
+                data.barLabelRight:SetPoint(layout.labelRightAnchor.point, data.barFrame, layout.labelRightAnchor.relPoint, layout.labelRightAnchor.x, layout.labelRightAnchor.y)
+                
+                -- Blocky Engine Generation
+                if theme.mode == "blocky" then
+                    data.barFill:Hide()
+                    data.barBG:Hide()
+                    local blockW = (barWidth - (layout.blockGap * (layout.numBlocks - 1))) / layout.numBlocks
+                    
+                    for b = 1, layout.numBlocks do
+                        if not data.blocks[b] then
+                            local t = data.barFrame:CreateTexture(nil, "OVERLAY")
+                            data.blocks[b] = { fill = t }
+                        end
+                        data.blocks[b].fill:SetSize(blockW, layout.barHeight)
+                        data.blocks[b].fill:ClearAllPoints()
+                        data.blocks[b].fill:SetPoint("LEFT", data.barFrame, "LEFT", (b - 1) * (blockW + layout.blockGap), 0)
+                        data.blocks[b].fill:SetTexture(theme.assets.blockTex)
+                        data.blocks[b].fill:Show()
+                    end
+                    -- Hide excess blocks if theme switched from high count to low count
+                    for b = layout.numBlocks + 1, #data.blocks do
+                        data.blocks[b].fill:Hide()
                     end
                 else
-                    data.barBG:SetColorTexture(barBGColor[1], barBGColor[2], barBGColor[3], barBGColor[4] or 1)
-                end
-                if barDef.fills and barDef.fills[key] then
-                    data.barFill:SetStatusBarTexture(barDef.fills[key])
-                else
-                    data.barFill:SetStatusBarTexture(fillTex)
-                end
-                if barDef.overlay then
-                    if string.find(barDef.overlay, "\\") then
-                        data.barOverlay:SetTexture(barDef.overlay)
-                    else
-                        data.barOverlay:SetAtlas(barDef.overlay, true)
-                    end
-                    data.barOverlay:Show()
-                else
-                    data.barOverlay:Hide()
+                    data.barFill:Show()
+                    data.barBG:Show()
+                    for _, b in ipairs(data.blocks) do b.fill:Hide() end
                 end
             else
                 data.barFrame:Hide()
             end
 
-            -- Block layout updates for blocky mode
-            local blockW = (barWidth - (BLOCK_GAP * (NUM_BLOCKS - 1))) / NUM_BLOCKS
-            for idx, bf in ipairs(data.blocks) do
-                bf.fill:ClearAllPoints()
-                bf.fill:SetSize(blockW, barHeight)
-                bf.fill:SetPoint("LEFT", data.barFrame, "LEFT", (idx - 1) * (blockW + BLOCK_GAP), 0)
-            end
-
-            -- GLYPHS
-            if showGlyphs then
+            -- Indicators
+            if layout.showGlyphs then
                 data.glyphTex:Show()
+                data.glyphTex:SetSize(layout.glyphSize, layout.glyphSize)
                 data.glyphTex:ClearAllPoints()
-                data.glyphTex:SetPoint(glyphAnchor.point, data.rowFrame, glyphAnchor.relPoint, glyphAnchor.x, glyphAnchor.y)
+                data.glyphTex:SetPoint(layout.glyphAnchor.point, data.rowFrame, layout.glyphAnchor.relPoint, layout.glyphAnchor.x, layout.glyphAnchor.y)
             else
                 data.glyphTex:Hide()
             end
         end
     end
-
-    ICN2:ApplyBarMode()
 end
 
--- ── Public entry points ────────────────────────────────────────────────────────
+-- ── Public Entry & Resize ──────────────────────────────────────────────────────
 function ICN2:SetBarTheme(themeId)
     ICN2:ApplyHUDTheme(themeId)
     ICN2:UpdateHUD()
 end
 
-function ICN2:SetBlockyBars(enabled)
-    ICN2:SetBarTheme(enabled and "blocky" or "colorful")
+function ICN2:ResizeBarLength() 
+    if hudFrame then ICN2:ApplyHUDTheme(ICN2DB.settings.barTheme) end 
 end
 
--- ══  SECTION 6 — Bar mode  ═════════════════════════════════════════════════════
-function ICN2:ApplyBarMode()
-    if not hudFrame then return end
-    local mode = getTheme().mode
-
-    for _, key in ipairs(NEED_KEYS) do
-        local data = bars[key]
-        if data then
-            if mode == "blocky" then
-                data.barFill:Hide()
-                data.barBG:Hide()
-                data.barLabelLeft:Hide()
-                data.barLabelRight:Hide()
-                data.barOverlay:Hide()
-                for _, bf in ipairs(data.blocks) do
-                    bf.fill:Show()
-                end
-            else
-                data.barFill:Show()
-                data.barBG:Show()
-                for _, bf in ipairs(data.blocks) do
-                    bf.fill:Hide()
-                end
-            end
-        end
-    end
+function ICN2:LockHUD(locked)
+    if hudFrame then hudFrame:EnableMouse(not locked) end
 end
 
--- ══  SECTION 7 — Update loop  ═══════════════════════════════════════════════════
+-- ══  SECTION 7 — Update Loop  ══════════════════════════════════════════════════
 function ICN2:UpdateHUD()
     if not hudFrame then return end
-    if not ICN2DB.settings.hudEnabled then hudFrame:Hide(); return end
-    hudFrame:Show()
+    local inCombat = (InCombatLockdown and InCombatLockdown()) and true or false
 
-    local values = {
-        hunger  = ICN2:GetNeedPercent("hunger"),
-        thirst  = ICN2:GetNeedPercent("thirst"),
-        fatigue = ICN2:GetNeedPercent("fatigue"),
-    }
-    local rates     = ICN2:GetCurrentRates()
-    local mode      = getTheme().mode
+    if not ICN2DB.settings.hudEnabled then
+        if not inCombat then hudFrame:Hide() end
+        -- If we're in combat, avoid calling protected methods; defer until combat ends
+        if inCombat then ICN2._hudPendingShow = false end
+        return
+    end
+
+    -- Only call :Show() when not in combat to avoid ADDON_ACTION_BLOCKED errors.
+    if inCombat then
+        ICN2._hudPendingShow = true
+        return
+    else
+        ICN2._hudPendingShow = nil
+        hudFrame:Show()
+    end
+
+    local theme = getTheme()
+    local values = { hunger = ICN2:GetNeedPercent("hunger"), thirst = ICN2:GetNeedPercent("thirst"), fatigue = ICN2:GetNeedPercent("fatigue") }
+    local rates = ICN2:GetCurrentRates()
     local labelMode = ICN2DB.settings.barLabelMode or "percentage"
 
     for _, key in ipairs(NEED_KEYS) do
         local data = bars[key]
         if data then
-            local val     = values[key] or 0
-            local r, g, b = getNeedColor(key, val)
+            local val = values[key] or 0
+            local r, g, b = getNeedColor(key, val, theme)
 
-            if mode == "blocky" then
-                local filled = (val >= 100) and NUM_BLOCKS or math.floor(val / 10)
-                for idx = 1, NUM_BLOCKS do
+            if theme.mode == "blocky" then
+                local filled = (val >= 100) and theme.layout.numBlocks or math.floor(val / (100 / theme.layout.numBlocks))
+                for idx = 1, theme.layout.numBlocks do
                     local bf = data.blocks[idx]
                     if idx <= filled then
                         bf.fill:SetVertexColor(r, g, b, 0.95)
@@ -861,12 +843,13 @@ function ICN2:UpdateHUD()
             else
                 data.barFill:SetValue(val)
                 data.barFill:SetStatusBarColor(r, g, b)
+                
                 local current = ICN2DB[key] or 0
                 local maxVal  = ICN2:GetMaxValue(key)
                 local pctText = string.format("%.0f%%", val)
                 local numText = string.format("%.0f/%.0f", current, maxVal)
 
-                if labelMode == "none" then
+                if labelMode == "none" or not theme.layout.showBars then
                     data.barLabelLeft:Hide()
                     data.barLabelRight:Hide()
                 elseif labelMode == "percentage" then
@@ -885,52 +868,10 @@ function ICN2:UpdateHUD()
                 end
             end
 
-            local assetPath, ir, ig, ib = getIndicatorAsset(rates[key] or 0)
+            local assetPath, ir, ig, ib = getIndicatorAsset(rates[key] or 0, theme)
             data.glyphTex:SetTexture(assetPath)
             data.glyphTex:SetVertexColor(ir, ig, ib)
-            data.setPulse(shouldPulse(assetPath))
+            data.setPulse(shouldPulse(assetPath, theme))
         end
     end
-end
-
--- ══  SECTION 8 — Resize / Lock  ════════════════════════════════════════════════
-function ICN2:ResizeBarLength()
-    if not hudFrame then return end
-
-    local barScale = ICN2DB.settings.hudBarScale or 1.0
-    local theme, rawTheme = getMergedHUDTheme(getTheme().id)
-    local barWidth = math.floor((theme.layout.barWidth or BASE_BAR_W) * barScale)
-    local iconSize = theme.layout.iconSize or ICON_SIZE
-    local rowHeight = theme.layout.barHeight or BAR_H
-    local innerW   = iconSize + 4 + barWidth + INDICATOR_W
-    local frameW   = innerW + CHROME_PAD * 2 + 8
-    local frameH   = HEADER_H + (#NEED_KEYS * (rowHeight + BAR_GAP)) + CHROME_PAD * 2
-
-    hudFrame:SetSize(frameW, frameH)
-    applyThemePadding(theme)
-
-    for i, key in ipairs(NEED_KEYS) do
-        local data = bars[key]
-        if data then
-            local rowWidth = iconSize + 4 + barWidth + INDICATOR_W + 8
-            local rowY = -((i - 1) * (rowHeight + BAR_GAP)) - 4
-            data.rowFrame:SetSize(rowWidth, rowHeight)
-            data.rowFrame:ClearAllPoints()
-            data.rowFrame:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", CHROME_PAD - 2, rowY)
-
-            data.barFrame:SetSize(barWidth, rowHeight)
-            if theme.mode == "blocky" then
-                local blockW = (barWidth - (BLOCK_GAP * (NUM_BLOCKS - 1))) / NUM_BLOCKS
-                for i, bf in ipairs(data.blocks) do
-                    bf.fill:ClearAllPoints()
-                    bf.fill:SetSize(blockW, rowHeight)
-                    bf.fill:SetPoint("LEFT", data.barFrame, "LEFT", (i - 1) * (blockW + BLOCK_GAP), 0)
-                end
-            end
-        end
-    end
-end
-
-function ICN2:LockHUD(locked)
-    if hudFrame then hudFrame:EnableMouse(not locked) end
 end
