@@ -8,9 +8,19 @@
 
 ## v2.7.0
 
-### 
+### HUD and Theme Engine
 
-- 
+- Refined the theme engine so each theme controls its own textures, colors,
+  opacity, fill direction, overlays, labels, positions, and sizing.
+- Restored the Colorful theme's custom bar textures while keeping translucent
+  solid fills for the other themes.
+- Improved the Minimalist Vertical and Horizontal themes with icon-sized
+  top-to-bottom depletion overlays, configurable labels, 200% scale, and
+  visible status glyphs.
+- Fixed theme-switch initialization issues, missing Blocky bar textures, and
+  glyph layering above the bars.
+- Enabled the label mode option for Minimalist themes, including None,
+  Percentage, Number, and Both.
 
 ## v2.6.0
 

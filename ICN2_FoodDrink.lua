@@ -40,8 +40,8 @@ ICN2._recentConsumableUse = {
 }
 
 -- ── Aura name patterns ────────────────────────────────────────────────────────
-local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }
-local DRINK_AURA_PATTERNS  = { "^drink", "^drinking", "hydration" }
+local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }  -- No ^ anchor - these are safe
+local DRINK_AURA_PATTERNS  = { "^drink", "^drinking", "hydration" }  -- ^ anchor to avoid false matches
 local DRINK_EXTRA_PATTERNS = { "conjured water", "mana tea", "morning glory" }
 local WELLFED_PATTERNS     = { "well fed" }
 local FEAST_NAME_PATTERNS  = { "feast", "banquet", "spread", "bountiful" }
@@ -302,20 +302,23 @@ local function detectFoodTier(foodAura)
         return "complex"
     end
 
--- Detects food tier, checking for feast keywords in aura name first
-local function detectFoodTier(foodAura)
-    local recentTier = consumeRecentConsumableTier()
-    if recentTier then return recentTier end
-    local isFeast = matchesAny(foodAura.name, FEAST_NAME_PATTERNS)
-    return detectTierFromBags(isFeast)
+    return "simple"
 end
 
--- Detects drink tier, inheriting feast status from food if applicable
-local function detectDrinkTier()
+-- Detects drink tier, inheriting feast status from food if applicable.
+local function detectDrinkTier(drinkAura)
     local recentTier = consumeRecentConsumableTier()
     if recentTier then return recentTier end
-    if foodState.active and foodState.tier == "feast" then return "feast" end
-    return detectTierFromBags(false)
+
+    if foodState.active and foodState.tier == "feast" then
+        return "feast"
+    end
+
+    if drinkAura and drinkAura.duration and drinkAura.duration >= 25 then
+        return "complex"
+    end
+
+    return "simple"
 end
 
 -- ── Apply completion bonus ─────────────────────────────────

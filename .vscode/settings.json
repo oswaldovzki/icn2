@@ -28,8 +28,7 @@
         "UIDropDownMenu_EnableDropDown",
         "UIDropDownMenu_DisableDropDown",
         "Background",
-        "Add",
-        "DoEmote"
+        "Add"
     ],
     "Lua.diagnostics.disable": [
         "deprecated",
