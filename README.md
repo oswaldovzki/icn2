@@ -45,7 +45,13 @@ ICN2 fits your playstyle with adjustable decay presets:
 
 - Multiple HUD themes, including **Colorful**, **Minimalist**, **Smooth**, **Blocky**, **Folk**, **Necromancer**, **Dastardly**, and **Vanguard**.
 - Color palettes include **Default** and **Colorblind_OkabeIto**.
-- Adjustable opacity, scale, bar length, and label mode.
+- Theme-specific textures, colors, opacity, fill direction, overlays, sizing,
+  and positioning are supported by the theme engine.
+- **Colorful** uses custom bar textures; other themes use translucent solid
+  fills so need icons remain visible.
+- **Minimalist Vertical** and **Minimalist Horizontal** use icon-sized,
+  top-to-bottom depletion overlays with configurable label modes.
+- Adjustable opacity, scale, bar length, and label mode for all themes.
 - Lock HUD position to prevent accidental movement.
 
 ---
@@ -116,4 +122,4 @@ Special thanks to the WoW addon community for feedback and testing.
 
 ## 📄 License
 
-MIT License.
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International.

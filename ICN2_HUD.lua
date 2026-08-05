@@ -86,6 +86,13 @@ ICN2.THEME_BASE = {
         indicatorW    = 30,
         glyphSize     = 16,          -- NEW: Indicator/glyph texture size
         glyphPad      = 2,           -- NEW: Padding around glyph
+        barOrientation = "HORIZONTAL",
+        barReverseFill = false,
+        barFillAlpha   = 1.0,
+        showDepletionOverlay = false,
+        showOverlayLabels = false,
+        overlayTopLeft  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 0, y = 0 },
+        overlayTopRight = { point = "TOPRIGHT", relPoint = "TOPRIGHT", x = 0, y = 0 },
 
         -- Blocky Mode Settings
         numBlocks   = 10,
@@ -178,6 +185,7 @@ ICN2.HUD_THEMES = {
         label = "Colorful (Default)",
         mode  = "smooth",
         layout = {
+            barFillAlpha = 1.0,
             iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },
             barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 33, y = 0 },
             glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = 3, y = 0 },
@@ -207,6 +215,7 @@ ICN2.HUD_THEMES = {
         label = "Smooth",
         mode  = "smooth",
         layout = {
+            barFillAlpha = 0.65,
             iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },
             barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 33, y = 0 },
             glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = 3, y = 0 },
@@ -236,6 +245,7 @@ ICN2.HUD_THEMES = {
         label = "Blocky",
         mode  = "blocky",
         layout = {
+            barFillAlpha = 0.95,
             glyphSize = 14,
             headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -20, y = 0 },
             headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 5, y = 0 },
@@ -249,6 +259,7 @@ ICN2.HUD_THEMES = {
         label = "Vanguard (Modern)",
         mode  = "smooth",
         layout = {
+            barFillAlpha = 0.65,
             showHeader = false,
             iconSize   = PixelSnap(28),
             barWidth   = PixelSnap(180),
@@ -284,14 +295,32 @@ ICN2.HUD_THEMES = {
         layout = {
             showChrome = false, showHeader = false, showBars = false, showGlyphs = true,
             orientation = "vertical",
+            fixedScale  = 2.0,
+            barOrientation = "VERTICAL",
+            barReverseFill = false,
+            barFillAlpha = 0.40,
+            showDepletionOverlay = true,
+            showOverlayLabels = true,
+            overlayTopLeft  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 0, y = 0 },
+            overlayTopRight = { point = "TOPRIGHT", relPoint = "TOPRIGHT", x = 0, y = 0 },
             iconSize    = 32,
+            barWidth    = 32,
+            barHeight   = 32,
+            barGap      = 8,
             glyphSize   = 12,
             glyphPad    = 4,
             iconAnchor  = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
-            glyphAnchor = { point = "CENTER", relPoint = "CENTER", x = -12, y = -12 },
-            labelLeftAnchor  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 0, y = 0 },
-            labelRightAnchor = { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 0, y = 0 },
+            glyphAnchor = { point = "BOTTOMRIGHT", relPoint = "BOTTOMRIGHT", x = -1, y = 1 },
+            labelLeftAnchor  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 1, y = -1 },
+            labelRightAnchor = { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 1, y = 1 },
             fontFace = "Fonts\\ARIALN.ttf", fontSize = 10,
+        },
+        assets = {
+            barFills = {
+                hunger = "Interface\\Buttons\\WHITE8X8",
+                thirst = "Interface\\Buttons\\WHITE8X8",
+                fatigue = "Interface\\Buttons\\WHITE8X8",
+            },
         },
     },
 
@@ -302,14 +331,32 @@ ICN2.HUD_THEMES = {
         layout = {
             showChrome = false, showHeader = false, showBars = false, showGlyphs = true,
             orientation = "horizontal",
+            fixedScale  = 2.0,
+            barOrientation = "HORIZONTAL",
+            barReverseFill = false,
+            barFillAlpha = 0.40,
+            showDepletionOverlay = true,
+            showOverlayLabels = true,
+            overlayTopLeft  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 0, y = 0 },
+            overlayTopRight = { point = "TOPRIGHT", relPoint = "TOPRIGHT", x = 0, y = 0 },
             iconSize    = 32,
+            barWidth    = 32,
+            barHeight   = 32,
+            barGap      = 8,
             glyphSize   = 12,
             glyphPad    = 4,
             iconAnchor  = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
-            glyphAnchor = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
-            labelLeftAnchor  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 0, y = 0 },
-            labelRightAnchor = { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 0, y = 0 },
+            glyphAnchor = { point = "BOTTOMRIGHT", relPoint = "BOTTOMRIGHT", x = -1, y = 1 },
+            labelLeftAnchor  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 1, y = -1 },
+            labelRightAnchor = { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 1, y = 1 },
             fontFace = "Fonts\\ARIALN.ttf", fontSize = 10,
+        },
+        assets = {
+            barFills = {
+                hunger = "Interface\\Buttons\\WHITE8X8",
+                thirst = "Interface\\Buttons\\WHITE8X8",
+                fatigue = "Interface\\Buttons\\WHITE8X8",
+            },
         },
     }
 }
@@ -318,7 +365,7 @@ ICN2.HUD_THEME_LIST = {
     ICN2.HUD_THEMES.colorful,
     ICN2.HUD_THEMES.smooth,
     ICN2.HUD_THEMES.blocky,
-    ICN2.HUD_THEMES.vanguard,
+    -- ICN2.HUD_THEMES.vanguard,
     ICN2.HUD_THEMES.minimalistV,
     ICN2.HUD_THEMES.minimalistH,
 }
@@ -477,7 +524,12 @@ function ICN2:BuildHUD()
         local barOverlay = barFrame:CreateTexture(nil, "OVERLAY")
         barOverlay:SetAllPoints()
 
-        local glyphTex = rowFrame:CreateTexture(nil, "OVERLAY")
+        -- Keep the glyph in its own higher-level frame so it renders above
+        -- barFrame, whose child textures otherwise cover rowFrame textures.
+        local glyphFrame = CreateFrame("Frame", nil, rowFrame)
+        glyphFrame:SetAllPoints(rowFrame)
+        glyphFrame:SetFrameLevel(rowFrame:GetFrameLevel() + 10)
+        local glyphTex = glyphFrame:CreateTexture(nil, "OVERLAY")
         local indBG = rowFrame:CreateTexture(nil, "BACKGROUND")
         indBG:SetPoint("CENTER", glyphTex, "CENTER", 0, 0)
         indBG:SetSize(32, 32)
@@ -537,27 +589,28 @@ function ICN2:ApplyHUDTheme(themeId)
     ICN2DB.settings.blockyBars = (theme.mode == "blocky")
 
     local layout = theme.layout
+    local settings = ICN2DB.settings or {}
     local barScale = ICN2DB.settings.hudBarScale or 1.0
     local barWidth = math.floor(layout.barWidth * barScale)
+    local isMinimalist = (theme.mode == "minimalist")
     
     -- Size HUD Frame mathematically based on theme flags
     local contentW = layout.iconSize + 4 + barWidth + layout.indicatorW
-    if layout.orientation == "horizontal" and theme.mode == "minimalist" then
-        contentW = layout.barHeight + layout.barGap
-    end
+    if isMinimalist then contentW = layout.iconSize end
     
     local frameW = contentW + layout.chromePad * 2 + 8
     if layout.orientation == "horizontal" then
         frameW = (#NEED_KEYS * contentW) + layout.chromePad * 2
     end
 
-    local frameH = (#NEED_KEYS * (layout.barHeight + layout.barGap)) + layout.chromePad * 2
+    local frameH = (#NEED_KEYS * layout.barHeight) + ((#NEED_KEYS - 1) * layout.barGap) + layout.chromePad * 2
     if layout.orientation == "horizontal" then
         frameH = layout.barHeight + layout.chromePad * 2
     end
     if layout.showHeader then frameH = frameH + layout.headerHeight end
 
     hudFrame:SetSize(frameW, frameH)
+    hudFrame:SetScale(layout.fixedScale or settings.hudScale or 1.0)
 
     -- Apply Chrome
     if layout.showChrome then
@@ -642,7 +695,7 @@ function ICN2:ApplyHUDTheme(themeId)
         local data = bars[key]
         if data then
             local rowX = (layout.orientation == "horizontal") and ((i - 1) * (contentW + layout.barGap)) or 0
-            local rowY = (layout.orientation == "horizontal") and -4 or -((i - 1) * (layout.barHeight + layout.barGap)) - 4
+            local rowY = (layout.orientation == "horizontal") and 0 or -((i - 1) * (layout.barHeight + layout.barGap))
             
             data.rowFrame:SetSize(contentW, layout.barHeight)
             data.rowFrame:ClearAllPoints()
@@ -664,19 +717,37 @@ function ICN2:ApplyHUDTheme(themeId)
             if theme.assets.glyphBG then applyTexSlot(data.indBG, theme.assets.glyphBG) else data.indBG:Hide() end
             
             -- Bar Framework
-            if layout.showBars then
+            if layout.showBars or isMinimalist then
                 data.barFrame:Show()
-                data.barFrame:SetSize(barWidth, layout.barHeight)
+                data.barFrame:SetSize(isMinimalist and layout.iconSize or barWidth, isMinimalist and layout.iconSize or layout.barHeight)
                 data.barFrame:ClearAllPoints()
-                data.barFrame:SetPoint(layout.barAnchor.point, data.rowFrame, layout.barAnchor.relPoint, layout.barAnchor.x, layout.barAnchor.y)
+                if isMinimalist then
+                    data.barFrame:SetPoint("CENTER", data.rowFrame, "CENTER", 0, 0)
+                else
+                    data.barFrame:SetPoint(layout.barAnchor.point, data.rowFrame, layout.barAnchor.relPoint, layout.barAnchor.x, layout.barAnchor.y)
+                end
                 
                 applyTexSlot(data.barBG, theme.assets.barBg)
                 data.barBG:SetAllPoints()
 
-                if theme.assets.barOverlay then applyTexSlot(data.barOverlay, theme.assets.barOverlay) else data.barOverlay:Hide() end
+                if layout.showDepletionOverlay and theme.assets.barOverlay then
+                    applyTexSlot(data.barOverlay, theme.assets.barOverlay)
+                    data.barOverlay:ClearAllPoints()
+                    data.barOverlay:SetPoint(layout.overlayTopLeft.point, data.barFrame, layout.overlayTopLeft.relPoint, layout.overlayTopLeft.x, layout.overlayTopLeft.y)
+                    data.barOverlay:SetPoint(layout.overlayTopRight.point, data.barFrame, layout.overlayTopRight.relPoint, layout.overlayTopRight.x, layout.overlayTopRight.y)
+                elseif theme.assets.barOverlay then applyTexSlot(data.barOverlay, theme.assets.barOverlay) else data.barOverlay:Hide() end
                 
-                local fillTex = theme.assets.barFills and theme.assets.barFills[key] or theme.assets.barFills.hunger
+                local fillTex = theme.assets.barFills and theme.assets.barFills[key]
                 data.barFill:SetStatusBarTexture(fillTex)
+                if layout.barOrientation then
+                    data.barFill:SetOrientation(layout.barOrientation)
+                end
+                if layout.barReverseFill ~= nil then
+                    data.barFill:SetReverseFill(layout.barReverseFill)
+                end
+                if layout.showDepletionOverlay then
+                    data.barBG:Hide()
+                end
                 
                 -- Fonts
                 data.barLabelLeft:SetFont(layout.fontFace, layout.fontSize, layout.fontFlags)
@@ -714,6 +785,15 @@ function ICN2:ApplyHUDTheme(themeId)
                 end
             else
                 data.barFrame:Hide()
+            end
+
+            if layout.showOverlayLabels then
+                data.barLabelLeft:SetFont(layout.fontFace, layout.fontSize, layout.fontFlags)
+                data.barLabelRight:SetFont(layout.fontFace, layout.fontSize, layout.fontFlags)
+                data.barLabelLeft:ClearAllPoints()
+                data.barLabelRight:ClearAllPoints()
+                data.barLabelLeft:SetPoint(layout.labelLeftAnchor.point, data.rowFrame, layout.labelLeftAnchor.relPoint, layout.labelLeftAnchor.x, layout.labelLeftAnchor.y)
+                data.barLabelRight:SetPoint(layout.labelRightAnchor.point, data.rowFrame, layout.labelRightAnchor.relPoint, layout.labelRightAnchor.x, layout.labelRightAnchor.y)
             end
 
             -- Indicators
@@ -779,6 +859,18 @@ function ICN2:UpdateHUD()
                 local filled = (val >= 100) and theme.layout.numBlocks or math.floor(val / (100 / theme.layout.numBlocks))
                 for idx = 1, theme.layout.numBlocks do
                     local bf = data.blocks[idx]
+                    -- A theme change can trigger UpdateHUD between the old
+                    -- layout being hidden and the new block textures being
+                    -- created. Build any missing block defensively here.
+                    if not bf then
+                        local blockW = (data.barFrame:GetWidth() - (theme.layout.blockGap * (theme.layout.numBlocks - 1))) / theme.layout.numBlocks
+                        local blockTex = data.barFrame:CreateTexture(nil, "OVERLAY")
+                        bf = { fill = blockTex }
+                        data.blocks[idx] = bf
+                        blockTex:SetSize(blockW, theme.layout.barHeight)
+                        blockTex:SetPoint("LEFT", data.barFrame, "LEFT", (idx - 1) * (blockW + theme.layout.blockGap), 0)
+                        blockTex:SetTexture(theme.assets.blockTex)
+                    end
                     if idx <= filled then
                         bf.fill:SetVertexColor(r, g, b, 0.95)
                         bf.fill:Show()
@@ -788,14 +880,37 @@ function ICN2:UpdateHUD()
                 end
             else
                 data.barFill:SetValue(val)
-                data.barFill:SetStatusBarColor(r, g, b)
+                data.barFill:SetStatusBarColor(r, g, b, theme.layout.barFillAlpha)
                 
                 local current = ICN2DB[key] or 0
                 local maxVal  = ICN2:GetMaxValue(key)
                 local pctText = string.format("%.0f%%", val)
                 local numText = string.format("%.0f/%.0f", current, maxVal)
 
-                if labelMode == "none" or not theme.layout.showBars then
+                if theme.layout.showDepletionOverlay then
+                    -- The dark overlay represents the missing portion and always
+                    -- retracts from the top down over the icon-sized bar.
+                    local missingHeight = data.barFrame:GetHeight() * (1 - (val / 100))
+                    data.barOverlay:SetHeight(math.max(0, missingHeight))
+                    data.barOverlay:Show()
+                    if labelMode == "none" then
+                        data.barLabelLeft:Hide()
+                        data.barLabelRight:Hide()
+                    elseif labelMode == "percentage" then
+                        data.barLabelLeft:Hide()
+                        data.barLabelRight:SetText(pctText)
+                        data.barLabelRight:Show()
+                    elseif labelMode == "number" then
+                        data.barLabelLeft:SetText(numText)
+                        data.barLabelLeft:Show()
+                        data.barLabelRight:Hide()
+                    elseif labelMode == "both" then
+                        data.barLabelLeft:SetText(numText)
+                        data.barLabelRight:SetText(pctText)
+                        data.barLabelLeft:Show()
+                        data.barLabelRight:Show()
+                    end
+                elseif labelMode == "none" or not theme.layout.showBars then
                     data.barLabelLeft:Hide()
                     data.barLabelRight:Hide()
                 elseif labelMode == "percentage" then

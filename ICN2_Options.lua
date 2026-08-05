@@ -188,14 +188,15 @@ local function UpdateThemeDependencies()
         showBars = false
     end
 
+    -- Label selection also applies to minimalist themes, whose icon-sized
+    -- overlays are not regular bars.
+    UIDropDownMenu_EnableDropDown(labelDropdown)
+    labelDropdown:SetAlpha(1.0)
+
     if showBars then
-        UIDropDownMenu_EnableDropDown(labelDropdown)
-        labelDropdown:SetAlpha(1.0)
         barLengthSlider:Enable()
         barLengthSlider:SetAlpha(1.0)
     else
-        UIDropDownMenu_DisableDropDown(labelDropdown)
-        labelDropdown:SetAlpha(0.5)
         barLengthSlider:Disable()
         barLengthSlider:SetAlpha(0.5)
     end
