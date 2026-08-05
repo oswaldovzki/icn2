@@ -202,6 +202,48 @@ ICN2.HUD_THEMES = {
         },
     },
 
+    colorful = {
+        id    = "colorful",
+        label = "Colorful (Default)",
+        mode  = "smooth",
+        layout = {
+            iconSize = 32,
+        },
+        chrome = {
+            bgCenter      = { 0.03, 0.03, 0.03, 0.65 },
+            cornerTL      = nil, cornerTR = nil,
+            cornerBL      = nil, cornerBR = nil,
+            edgeTop       = nil, edgeBottom = nil,
+            edgeLeft      = nil, edgeRight  = nil,
+            titleStrip    = nil,
+            cornerSize    = 6, edgeThickness = 2,
+        },
+        bar = {
+            overlay = ASSETS_PATH .. "inc2_hunger_overlay-bar.png",
+            bg      = ASSETS_PATH .. "icn2-bg-hunger-bar.png",
+            fills   = {
+                hunger  = ASSETS_PATH .. "inc2_hunger_barfill.png",
+                thirst  = ASSETS_PATH .. "inc2_thirst_barfill.png",
+                fatigue = ASSETS_PATH .. "inc2_sleep_barfill.png",
+            },
+        },
+        barColors = nil,
+    },
+
+    minimalist = {
+        id    = "minimalist",
+        label = "Minimalist",
+        mode  = "smooth",
+        layout = {
+            showChrome = false,
+            showHeader = false,
+            showBars   = false,
+            showGlyphs = false,
+            iconSize   = 32,
+            iconAnchor = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
+        },
+    },
+
     smooth = {
         id    = "smooth",
         label = "Smooth",
@@ -398,16 +440,26 @@ function ICN2:BuildHUD()
     hudFrame = CreateFrame("Frame", "ICN2HUDFrame", UIParent)
     hudFrame:SetFrameStrata("MEDIUM")
     hudFrame:SetClampedToScreen(true)
-    hudFrame:SetPoint("CENTER", UIParent, "CENTER", s.hudX or 200, s.hudY or -250)
+
+    local pos = s.hudPosition
+    if pos and pos.point then
+        hudFrame:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
+    else
+        hudFrame:SetPoint("CENTER", UIParent, "CENTER", s.hudX or 200, s.hudY or -250)
+    end
+
     hudFrame:EnableMouse(true)
     hudFrame:SetMovable(true)
     hudFrame:RegisterForDrag("LeftButton")
     hudFrame:SetScript("OnDragStart", function(self) if not ICN2DB.settings.hudLocked then self:StartMoving() end end)
     hudFrame:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
-        local _, _, _, x, y = self:GetPoint()
-        ICN2DB.settings.hudX = x
-        ICN2DB.settings.hudY = y
+        local point, _, relPoint, x, y = self:GetPoint()
+        ICN2DB.settings.hudPosition = ICN2DB.settings.hudPosition or { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 }
+        ICN2DB.settings.hudPosition.point = point
+        ICN2DB.settings.hudPosition.relPoint = relPoint
+        ICN2DB.settings.hudPosition.x = x
+        ICN2DB.settings.hudPosition.y = y
     end)
     hudFrame:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")

@@ -302,23 +302,20 @@ local function detectFoodTier(foodAura)
         return "complex"
     end
 
-    return "simple"
-end
-
--- Detects drink tier, inheriting feast status from food if applicable.
-local function detectDrinkTier(drinkAura)
+-- Detects food tier, checking for feast keywords in aura name first
+local function detectFoodTier(foodAura)
     local recentTier = consumeRecentConsumableTier()
     if recentTier then return recentTier end
+    local isFeast = matchesAny(foodAura.name, FEAST_NAME_PATTERNS)
+    return detectTierFromBags(isFeast)
+end
 
-    if foodState.active and foodState.tier == "feast" then
-        return "feast"
-    end
-
-    if drinkAura and drinkAura.duration and drinkAura.duration >= 25 then
-        return "complex"
-    end
-
-    return "simple"
+-- Detects drink tier, inheriting feast status from food if applicable
+local function detectDrinkTier()
+    local recentTier = consumeRecentConsumableTier()
+    if recentTier then return recentTier end
+    if foodState.active and foodState.tier == "feast" then return "feast" end
+    return detectTierFromBags(false)
 end
 
 -- ── Apply completion bonus ─────────────────────────────────
