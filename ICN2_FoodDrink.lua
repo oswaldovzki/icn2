@@ -40,8 +40,8 @@ ICN2._recentConsumableUse = {
 }
 
 -- ── Aura name patterns ────────────────────────────────────────────────────────
-local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }  -- No ^ anchor - these are safe
-local DRINK_AURA_PATTERNS  = { "^drink", "^drinking", "hydration" }  -- ^ anchor to avoid false matches
+local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }
+local DRINK_AURA_PATTERNS  = { "^drink", "^drinking", "hydration" }
 local DRINK_EXTRA_PATTERNS = { "conjured water", "mana tea", "morning glory" }
 local WELLFED_PATTERNS     = { "well fed" }
 local FEAST_NAME_PATTERNS  = { "feast", "banquet", "spread", "bountiful" }
@@ -155,12 +155,71 @@ end
 -- A nil updateInfo is a full-refresh signal — we rebuild from scratch.
 -- State.lua reads this cache for campfire/sitting detection instead of ForEachAura.
 ICN2._auraCache = {}  -- public so State.lua can read it
+ICN2._auraAccessBlocked = false
+ICN2._auraAccessBlockedReason = nil
+
+local function isSecretAuraError(err)
+    if not err or type(err) ~= "string" then return false end
+    local lower = err:lower()
+    return lower:find("secret", 1, true) ~= nil
+        or lower:find("forbidden", 1, true) ~= nil
+        or lower:find("tainted", 1, true) ~= nil
+end
+
+local function safeGetAuraDataByIndex(unit, index, filter)
+    if not C_UnitAuras or type(C_UnitAuras.GetAuraDataByIndex) ~= "function" then
+        return nil, false
+    end
+
+    local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, unit, index, filter)
+    if not ok then
+        if isSecretAuraError(aura) then
+            return nil, true
+        end
+        return nil, false
+    end
+
+    return aura, false
+end
+
+local function safeGetAuraDataByAuraInstanceID(unit, id)
+    if not C_UnitAuras or type(C_UnitAuras.GetAuraDataByAuraInstanceID) ~= "function" then
+        return nil, false
+    end
+
+    local ok, aura = pcall(C_UnitAuras.GetAuraDataByAuraInstanceID, unit, id)
+    if not ok then
+        if isSecretAuraError(aura) then
+            return nil, true
+        end
+        return nil, false
+    end
+
+    return aura, false
+end
+
+local function setAuraAccessBlocked(reason)
+    ICN2._auraAccessBlocked = true
+    ICN2._auraAccessBlockedReason = reason or "secret"
+    ICN2._auraCache = {}
+end
+
+local function clearAuraAccessBlocked()
+    ICN2._auraAccessBlocked = false
+    ICN2._auraAccessBlockedReason = nil
+end
 
 local function rebuildAuraCache()
+    clearAuraAccessBlocked()
+
     local cache = {}
     local i = 1
     while true do
-        local aura = C_UnitAuras.GetAuraDataByIndex("player", i, "HELPFUL")
+        local aura, blocked = safeGetAuraDataByIndex("player", i, "HELPFUL")
+        if blocked then
+            setAuraAccessBlocked("secret")
+            return
+        end
         if not aura then break end
         if aura.auraInstanceID then
             cache[aura.auraInstanceID] = aura
@@ -178,14 +237,23 @@ local function patchAuraCache(updateInfo)
     if updateInfo.addedAuras then
         for _, aura in ipairs(updateInfo.addedAuras) do
             if aura.auraInstanceID then
-                cache[aura.auraInstanceID] = aura
+                local fresh, blocked = safeGetAuraDataByAuraInstanceID("player", aura.auraInstanceID)
+                if blocked then
+                    setAuraAccessBlocked("secret")
+                    return
+                end
+                cache[aura.auraInstanceID] = fresh or aura
             end
         end
     end
 
     if updateInfo.updatedAuraInstanceIDs then
         for _, id in ipairs(updateInfo.updatedAuraInstanceIDs) do
-            local fresh = C_UnitAuras.GetAuraDataByAuraInstanceID("player", id)
+            local fresh, blocked = safeGetAuraDataByAuraInstanceID("player", id)
+            if blocked then
+                setAuraAccessBlocked("secret")
+                return
+            end
             if fresh then
                 cache[id] = fresh
             else
@@ -199,6 +267,8 @@ local function patchAuraCache(updateInfo)
             cache[id] = nil
         end
     end
+
+    clearAuraAccessBlocked()
 end
 
 -- Searches the cache for the first aura matching any pattern set.
@@ -295,6 +365,7 @@ function ICN2:OnUnitAura(updateInfo)
         patchAuraCache(updateInfo)
     end
 
+    if ICN2._auraAccessBlocked then return end
     if ICN2.State and ICN2.State.inInstance then return end
     if UnitAffectingCombat("player") then return end
 

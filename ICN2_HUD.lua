@@ -41,12 +41,13 @@ local PULSE_MIN    = 0.25
 local PULSE_MAX    = 1.0
 
 -- ── Deep Merge Engine ─────────────────────────────────────────────────────────
-local function MergeTheme(base, override) -- Deep merge two theme tables, with override taking precedence
+local function MergeTheme(base, override)
     local result = {}
     for k, v in pairs(base) do
         if type(v) == "table" and type(override[k]) == "table" then
             result[k] = MergeTheme(v, override[k])
         else
+            -- If user explicitly overrides (even with false or ""), use it.
             if override[k] ~= nil then 
                 result[k] = override[k]
             else
@@ -62,7 +63,7 @@ local function MergeTheme(base, override) -- Deep merge two theme tables, with o
     return result
 end
 
--- ═══ SECTION 1 — The Master Blueprint ════════════════════════════
+-- ═══ SECTION 1 — The Master Blueprint (THEME_BASE) ════════════════════════════
 ICN2.THEME_BASE = {
     layout = {
         -- Visibility Flags
@@ -74,44 +75,45 @@ ICN2.THEME_BASE = {
         orientation = "vertical", -- "vertical" or "horizontal"
 
         -- Global Spacing
-        chromePad    = 6,   -- Padding between chrome and content
-        headerHeight = 26,  -- Height of the header bar
-        barGap       = 8,   -- Gap between bars (vertical or horizontal)
+        chromePad    = 6,
+        headerHeight = 26,
+        barGap       = 8,
 
         -- Element Dimensions
-        barWidth      = 200,    -- Width of the bars (horizontal)
-        barHeight     = 20,     -- Height of the bars (vertical)
-        iconSize      = 20,     -- Size of the need icons
-        indicatorW    = 30,     -- Width of the indicator/glyph area
-        glyphSize     = 16,     -- Indicator/glyph texture size
-        glyphPad      = 2,      -- Padding around glyph
+        barWidth      = 200,
+        barHeight     = 20,
+        iconSize      = 20,
+        indicatorW    = 30,
+        glyphSize     = 16,          -- NEW: Indicator/glyph texture size
+        glyphPad      = 2,           -- NEW: Padding around glyph
 
         -- Blocky Mode Settings
-        numBlocks   = 10,   -- Number of blocks in blocky mode
-        blockGap    = 2,    -- Gap between blocks in blocky mode
+        numBlocks   = 10,
+        blockGap    = 2,
 
-        -- Row Anchors
-        iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 0, y = 0 },      -- Icon position relative to row frame
-        barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 30, y = 0 },     -- Bar position relative to row frame
-        glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 },   -- Glyph position relative to row frame
+        -- Row Anchors (relative to their parent frame)
+        iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 0, y = 0 },
+        barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 30, y = 0 },
+        glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 },
         
         -- Header Buttons
-        headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -6, y = -4 },  -- Header buttons position relative to header frame
-        headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 12, y = 0 },   -- Header title position relative to header frame
+        headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -6, y = -4 },
+        headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 12, y = 0 },
         headerBtnSize   = 24,
         headerBtnGap    = 4,
 
         -- Labels & Fonts
-        labelLeftAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },     -- Left-aligned label position relative to bar fill
-        labelRightAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -3, y = 0 },  -- Right-aligned label position relative to bar fill
+        labelLeftAnchor  = { point = "LEFT", relPoint = "LEFT", x = 3, y = 0 },
+        labelRightAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -3, y = 0 },
         fontFace         = "Fonts\\FRIZQT__.TTF",
         fontSize         = 10,
         fontFlags        = "OUTLINE",
     },
     
     assets = {
-        barBg       = { 0.12, 0.12, 0.12, 0.9 },    -- Default bar background color
-        barOverlay  = nil,                          -- Optional overlay texture
+        -- Bar Fill Textures (primary texture for smooth bars)
+        barBg       = { 0.12, 0.12, 0.12, 0.9 },  -- NEW: Default bar background color
+        barOverlay  = nil,                         -- NEW: Optional overlay texture
         barFills = {
             hunger  = ASSETS_PATH .. "ICN2_fill_hunger_bar.png",
             thirst  = ASSETS_PATH .. "ICN2_fill_thirst_bar.png",
@@ -235,6 +237,10 @@ ICN2.HUD_THEMES = {
         mode  = "blocky",
         layout = {
             glyphSize = 14,
+            headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -20, y = 0 },
+            headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 5, y = 0 },
+            headerBtnSize   = 16,
+            headerBtnGap    = 3,
         },
     },
 
@@ -285,7 +291,8 @@ ICN2.HUD_THEMES = {
             glyphAnchor = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
             labelLeftAnchor  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 0, y = 0 },
             labelRightAnchor = { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 0, y = 0 },
-            fontFace = "Fonts\\ARIALN.ttf", fontSize = 10,
+            fontFace = "Fonts\\ARIALN.ttf",
+            fontSize = 10,
         },
     },
 
@@ -303,7 +310,8 @@ ICN2.HUD_THEMES = {
             glyphAnchor = { point = "CENTER", relPoint = "CENTER", x = 0, y = 0 },
             labelLeftAnchor  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 0, y = 0 },
             labelRightAnchor = { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 0, y = 0 },
-            fontFace = "Fonts\\ARIALN.ttf", fontSize = 10,
+            fontFace = "Fonts\\ARIALN.ttf",
+            fontSize = 10,
         },
     }
 }
@@ -312,7 +320,7 @@ ICN2.HUD_THEME_LIST = {
     ICN2.HUD_THEMES.colorful,
     ICN2.HUD_THEMES.smooth,
     ICN2.HUD_THEMES.blocky,
-    ICN2.HUD_THEMES.vanguard,
+    -- ICN2.HUD_THEMES.vanguard,
     ICN2.HUD_THEMES.minimalistV,
     ICN2.HUD_THEMES.minimalistH,
 }

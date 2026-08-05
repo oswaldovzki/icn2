@@ -43,7 +43,7 @@ ICN2 fits your playstyle with adjustable decay presets:
 
 ## 🎨 HUD & Themes
 
-- Multiple HUD themes, including **Colorful**, **Minimalist**, **Smooth**, **Blocky**, **Folk**, **Necromancer**, and **Dastardly**.
+- Multiple HUD themes, including **Colorful**, **Minimalist**, **Smooth**, **Blocky**, **Folk**, **Necromancer**, **Dastardly**, and **Vanguard**.
 - Color palettes include **Default** and **Colorblind_OkabeIto**.
 - Adjustable opacity, scale, bar length, and label mode.
 - Lock HUD position to prevent accidental movement.
@@ -85,11 +85,18 @@ ICN2 fits your playstyle with adjustable decay presets:
 
 ---
 
-## ⚔️ Compatibility
+## ⚔️ Compatibility & Classic Flavors
 
 - Tested with WoW version **12.1.0** (Retail).
-- Classic compatibility not guaranteed.
 - Uses saved variable `ICN2DB`.
+
+**A Note on Classic (Era, Season of Discovery, Cataclysm):**  
+I exclusively play and develop for the modern Retail client, which means I do not have the time or resources to officially support, test, or maintain ICN2 for Classic versions of the game. 
+
+However, the open-source community is absolutely welcome to adapt it! If you are a developer interested in porting ICN2 to a Classic environment, please feel free to fork the project, adapt the API, and maintain a Classic-specific branch. 
+
+**Source Code & GitHub Repository:**  
+[https://github.com/Anduin-Webworks/ICN2](https://github.com/Anduin-Webworks/ICN2)
 
 ---
 
