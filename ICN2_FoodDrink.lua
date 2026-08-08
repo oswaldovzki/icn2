@@ -1,10 +1,10 @@
--- ============================================================
+-- =====================================================================================
 -- ICN2_FoodDrink.lua
 -- Tracks food and drink buffs, detects their tiers, and applies completion bonuses.
 -- Uses aura scanning for reliable detection of buffs that apply/expire during combat.
 -- Also keeps a short-lived memory of the last consumed food/drink item so item
 -- quality can be used as a fast-path hint before the aura logic runs.
--- ============================================================
+-- =====================================================================================
 
 ICN2 = ICN2 or {}
 
@@ -20,8 +20,8 @@ local TIER_DATA = {
     feast   = { trickle = 60.0, bonus = 40.0 },  -- Feasts: 60 points over duration + 40 point bonus, applies to both hunger and thirst
 }
 
-local WELLFED_PAUSE_SECS = 300  -- 5 minutes of hunger decay pause from well-fed buff
-local CONSUMABLE_HINT_TTL = 2.0  -- seconds to keep the most recent consumable-use hint
+local WELLFED_PAUSE_SECS = 300
+local CONSUMABLE_HINT_TTL = 2.0
 
 -- ── Public state (read by Core) ───────────────────────────────────────────────
 ICN2._wellFedPauseExpiry = 0    -- GetTime() timestamp when well-fed pause expires; 0 = not active
@@ -31,7 +31,6 @@ ICN2._wellFedPauseExpiry = 0    -- GetTime() timestamp when well-fed pause expir
 local foodState  = { active = false, startTime = nil, duration = nil, tier = nil }
 local drinkState = { active = false, startTime = nil, duration = nil, tier = nil }
 
--- Short-lived hint captured from the moment the player uses a consumable item.
 ICN2._recentConsumableUse = {
     tier       = nil,
     quality    = nil,
@@ -40,14 +39,13 @@ ICN2._recentConsumableUse = {
 }
 
 -- ── Aura name patterns ────────────────────────────────────────────────────────
-local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }  -- No ^ anchor - these are safe
-local DRINK_AURA_PATTERNS  = { "^drink", "^drinking", "hydration" }  -- ^ anchor to avoid false matches
+local FOOD_AURA_PATTERNS   = { "food", "refreshment", "eating" }
+local DRINK_AURA_PATTERNS  = { "^drink", "^drinking", "hydration" }
 local DRINK_EXTRA_PATTERNS = { "conjured water", "mana tea", "morning glory" }
 local WELLFED_PATTERNS     = { "well fed" }
 local FEAST_NAME_PATTERNS  = { "feast", "banquet", "spread", "bountiful" }
 
 -- ── Aura helpers ──────────────────────────────────────────────────────────────
--- Checks if a string matches any of the provided patterns (case-insensitive substring search)
 local function matchesAny(name, patterns)
     if not name or not patterns then return false end
 
@@ -154,7 +152,7 @@ end
 -- Built once on login, then patched on each UNIT_AURA event using updateInfo deltas.
 -- A nil updateInfo is a full-refresh signal — we rebuild from scratch.
 -- State.lua reads this cache for campfire/sitting detection instead of ForEachAura.
-ICN2._auraCache = {}  -- public so State.lua can read it
+ICN2._auraCache = {}
 ICN2._auraAccessBlocked = false
 ICN2._auraAccessBlockedReason = nil
 
@@ -230,8 +228,6 @@ local function rebuildAuraCache()
 end
 
 local function patchAuraCache(updateInfo)
-    -- updateInfo.addedAuras / updatedAuraInstanceIDs: fetch fresh data and upsert
-    -- updateInfo.removedAuraInstanceIDs: delete from cache
     local cache = ICN2._auraCache
 
     if updateInfo.addedAuras then
@@ -257,7 +253,7 @@ local function patchAuraCache(updateInfo)
             if fresh then
                 cache[id] = fresh
             else
-                cache[id] = nil  -- expired between event and fetch
+                cache[id] = nil
             end
         end
     end
@@ -281,7 +277,6 @@ local function findAuraInCache(patterns, extraPatterns)
     return nil
 end
 
--- Seeds the cache on login. Called from Core after a 1-second delay (same as armor cache).
 function ICN2:InitAuraCache()
     rebuildAuraCache()
 end
@@ -355,8 +350,6 @@ end
 
 -- ── Main aura handler ────────────────────────────────────────────────────────
 -- Entry point called by Core's UNIT_AURA event with the raw updateInfo payload.
--- Step 1: Update the shared aura cache (delta patch or full rebuild).
--- Step 2: Derive food/drink/wellfed state from the now-current cache.
 function ICN2:OnUnitAura(updateInfo)
     -- ── Step 1: maintain the cache ────────────────────────────────────────────
     if not updateInfo then
@@ -371,7 +364,7 @@ function ICN2:OnUnitAura(updateInfo)
 
     local now = GetTime()
 
-    -- ── V4: Race Identity Interceptor Hook ────────────────────────────────────
+    -- ── Race Identity Interceptor Hook ────────────────────────────────────
     if ICN2DB and ICN2DB.settings and ICN2DB.settings.raceIdentityEnabled and ICN2.RaceModifiers then
         local _, playerRace = UnitRace("player")
         if ICN2.RaceModifiers[playerRace] and type(ICN2.RaceModifiers[playerRace].HandleConsumables) == "function" then
@@ -402,7 +395,7 @@ function ICN2:OnUnitAura(updateInfo)
         end
     end
 
-    -- ── Well Fed aura handling (with eating-linked eligibility) ───────────────
+    -- ── Well Fed aura handling  ────────────────────────────────────────────────
     local wellFedAura = findAuraInCache(WELLFED_PATTERNS)
     if wellFedAura then
         local id = wellFedAura.auraInstanceID or 0
@@ -475,32 +468,26 @@ function ICN2:FoodDrinkTick()          end
 -- ── Status queries (read by Core rate engine) ─────────────────────────────────
 -- Functions that provide current food/drink state information to the core rate calculation engine
 
--- Returns true if player currently has an active food buff (eating or post-eating phase)
 function ICN2:IsEating()
     return foodState.active
 end
 
--- Returns true if player currently has an active drink buff (drinking or post-drinking phase)
 function ICN2:IsDrinking()
     return drinkState.active
 end
 
--- Returns the current food tier: "simple", "complex", or "feast"
 function ICN2:GetFoodTier()
     return foodState.tier or "simple"
 end
 
--- Returns the current drink tier: "simple", "complex", or "feast"
 function ICN2:GetDrinkTier()
     return drinkState.tier or "simple"
 end
 
--- Returns the total duration of the current food buff in seconds, or nil if not eating
 function ICN2:GetFoodDuration()
     return foodState.duration
 end
 
--- Returns the total duration of the current drink buff in seconds, or nil if not drinking
 function ICN2:GetDrinkDuration()
     return drinkState.duration
 end

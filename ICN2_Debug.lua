@@ -1,25 +1,20 @@
 -- ============================================================
 -- ICN2_Debug.lua
--- Standalone debug overlay. NOT included in release builds.
+-- Standalone debug overlay.
 -- Usage: /icn2 debug
 -- ============================================================
 
 ICN2 = ICN2 or {}
 
--- ── Layout ────────────────────────────────────────────────────────────────────
--- Constants defining the debug window's appearance and layout
-local DEBUG_W    = 800  -- Window width
-local DEBUG_H    = 600  -- Window height
+-- ── Layout ───────────────────────────────────────────────────────────────────
+local DEBUG_W    = 700  -- Window width
+local DEBUG_H    = 700  -- Window height
 local DEBUG_FONT = "Fonts\\FRIZQT__.TTF"  -- Font file path
 local DEBUG_SIZE = 12   -- Font size
 
 local debugFrame = nil
 
--- ══════════════════════════════════════════════════════════════════════════════
--- SECTION 1 — Snapshot builder
--- Collects every piece of observable state into a plain Lua table,
--- then serializes it to a pretty-printed JSON-like string.
--- ══════════════════════════════════════════════════════════════════════════════
+-- ═════ SECTION 1 — Snapshot builder ══════════════════════════════════════════
 
 -- ── Armor tier from equipped chest ───────────────────────────────────────────
 local function getArmorTier()
@@ -360,11 +355,7 @@ local function buildSnapshot()
     }
 end
 
--- ══════════════════════════════════════════════════════════════════════════════
--- SECTION 2 — Serializer
---  Converts the snapshot table into a JSON-like string for display. Handles
---  pretty-printing with indentation and sorting for readability.
--- ══════════════════════════════════════════════════════════════════════════════
+-- ═════ SECTION 2 — Serializer ═════════════════════════════════════════════
 
 local function serialize(val, indent)
     indent = indent or 0
@@ -422,11 +413,7 @@ local function serialize(val, indent)
     end
 end
 
--- ══════════════════════════════════════════════════════════════════════════════
--- SECTION 3 — UI
--- Creates and manages the debug window UI components including the frame,
--- scrollable text area, and control buttons.
--- ══════════════════════════════════════════════════════════════════════════════
+-- ═════ SECTION 3 — UI ═════════════════════════════════════════════
 local function buildDebugFrame()
     local f = CreateFrame("Frame", "ICN2DebugFrame", UIParent, "BasicFrameTemplateWithInset")
     f:SetSize(DEBUG_W, DEBUG_H)
@@ -508,11 +495,7 @@ local function buildDebugFrame()
     return f
 end
 
--- ══════════════════════════════════════════════════════════════════════════════════════════
--- SECTION 4 — Public entry point
--- Exposes a function to open the debug window, which builds the snapshot and
--- updates the display each time it's opened. The window can be toggled with the same command
--- ══════════════════════════════════════════════════════════════════════════════════════════
+-- ═════ SECTION 4 — Public entry point ═════════════════════════════════════════════
 function ICN2:OpenDebug()
     if not debugFrame then
         debugFrame = buildDebugFrame()
@@ -530,11 +513,7 @@ function ICN2:OpenDebug()
     end
 end
 
--- ══════════════════════════════════════════════════════════════════════════════
--- SECTION 5 — Hook into /icn2 debug
--- Extends the existing slash handler by overriding it after Core registers it.
--- Uses a wrapper so Core's original handler still fires for all other commands.
--- ══════════════════════════════════════════════════════════════════════════════
+-- ═════ SECTION 5 — Hook into /icn2 debug ═════════════════════════════════════════════
 
 local hookFrame = CreateFrame("Frame")
 hookFrame:RegisterEvent("ADDON_LOADED")

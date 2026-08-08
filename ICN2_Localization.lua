@@ -12,9 +12,9 @@ L["FATIGUE"] = "Fatigue"
 -- System messages
 L["MSG_LOADED"]          = "loaded. Type |cFFFFFF00/icn2|r for options."
 L["MSG_MIGRATED_POINTS"] = "Needs migrated to point-based system."
-L["MSG_RATES_UPDATED"]   = "Rates updated to v2.5.0 defaults."
+L["MSG_RATES_UPDATED"]   = "Rates updated to v2.8.1 defaults."
 L["MSG_RESET"]           = "Needs reset to 100%."
-L["MSG_SET_ZERO"]        = "%s set to 0%%."  -- %s = need name (colored)
+L["MSG_SET_ZERO"]        = "%s set to 0%%."
 L["MSG_EAT"]             = "You eat something. Hunger restored."
 L["MSG_DRINK"]           = "You drink something. Thirst restored."
 L["MSG_REST"]            = "You rest. Fatigue restored."

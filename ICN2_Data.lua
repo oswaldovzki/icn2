@@ -3,7 +3,7 @@
 -- Static tables: defaults, race/class modifiers, emotes
 -- ============================================================
 
-ICN2 = ICN2 or {}  -- Safely initialize the global ICN2 table to avoid overwriting existing data
+ICN2 = ICN2 or {}
 
 local L = setmetatable({}, { __index = function(_, k)
     return ICN2.L and ICN2.L[k] or k
@@ -56,10 +56,10 @@ end
 
 -- ── Default SavedVariables structure ──────────────────────────────────────────
 ICN2.DEFAULTS = {
-    hunger  = 100.0,   -- stored in race-specific points (0–maxValue); baseline = 100
+    hunger  = 100.0, 
     thirst  = 100.0,
     fatigue = 100.0,
-    lastLogout = nil,  -- timestamp via time()
+    lastLogout = nil,
     wellFedEligible = true,
 
     
@@ -67,13 +67,11 @@ ICN2.DEFAULTS = {
         -- "fast" | "medium" | "slow" | "realistic" | "custom"
         preset = "medium",
 
-        -- Only when preset == "custom". Integer 0..CUSTOM_DECAY_MULTIPLIER_MAX.
         customDecayBias = {
             hunger  = 1,
             thirst  = 1,
             fatigue = 1,
         },
-        -- Bumped when customDecayBias scale changes; used for one-time migration from old saves.
         customDecayBiasVersion = 2,
 
         -- Decay per real-time second at medium preset (multiplier = 1.0)
@@ -94,10 +92,10 @@ ICN2.DEFAULTS = {
         hudX          = nil,
         hudY          = nil,
 
-        -- v1.1: Offline decay
+        -- Offline decay
         freezeOfflineNeeds = false,
 
-        -- v1.1: Blocky bar display
+        -- Blocky bar display
         blockyBars = false,
 
         -- Emotes
@@ -136,12 +134,10 @@ ICN2.PRESETS = {
     custom    = 1.00
 }
 
--- Custom sliders: 0 = no passive decay;
 ICN2.CUSTOM_DECAY_MULTIPLIER_MAX = 20 * ICN2.PRESETS.medium
 
 -- ── Situational decay multipliers ─────────────────────────────────────────────
 -- These modify the decay rate based on the player's current activity.
--- Each situation applies its multipliers to hunger, thirst, and fatigue.
 ICN2.SITUATION_MODIFIERS = {
     swimming   = { hunger = 1.4, thirst = 1.5, fatigue = 1.8 },
     flying     = { hunger = 0.9, thirst = 1.1, fatigue = 0.6 },
@@ -156,7 +152,6 @@ ICN2.SITUATION_MODIFIERS = {
 }
 
 -- ── Race modifiers (multiplied on top of situation) ───────────────────────────
--- 1.0 = normal, >1.0 = decays faster, <1.0 = decays slower
 ICN2.RACE_MODIFIERS = {
     -- Horde
     ["Orc"]                 = { hunger = 0.95, thirst = 1.00, fatigue = 0.92 }, -- strong constitution, excellent endurance},
@@ -193,6 +188,7 @@ ICN2.RACE_MODIFIERS = {
 -- ── Race max values (point pools) ─────────────────────────────────────────────
 -- Defines how large each need's pool is per race. Larger pools mean the need takes longer to deplete in absolute game time
 ICN2.RACE_MAX_VALUES = {
+    
     -- Horde
     ["Orc"]                = { hunger = 108, thirst = 102, fatigue = 112 }, -- Strong constitution, excellent endurance
     ["Scourge"]            = { hunger = 75,  thirst = 75,  fatigue = 120 }, -- Undead: minimal food/water, decay causes fatigue
@@ -205,6 +201,7 @@ ICN2.RACE_MAX_VALUES = {
     ["MagharOrc"]          = { hunger = 112, thirst = 105, fatigue = 115 }, -- Draenor-hardened survivors
     ["Vulpera"]            = { hunger = 85,  thirst = 75,  fatigue = 95  }, -- desert-adapted: small but efficient
     ["ZandalariTroll"]     = { hunger = 105, thirst = 105, fatigue = 108 }, -- Proud empire builders, balanced
+    
     -- Alliance
     ["Human"]              = { hunger = 100, thirst = 100, fatigue = 100 }, -- baseline, boring but relatable
     ["Dwarf"]              = { hunger = 110, thirst = 105, fatigue = 115 }, -- hearty constitution, but still gets tired from mining and drinking
@@ -217,6 +214,7 @@ ICN2.RACE_MAX_VALUES = {
     ["DarkIronDwarf"]      = { hunger = 108, thirst = 102, fatigue = 110 }, -- Forge-hardened constitution
     ["KulTiran"]           = { hunger = 115, thirst = 105, fatigue = 108 }, -- Hearty sailors with reserves
     ["Mechagnome"]         = { hunger = 65,  thirst = 60,  fatigue = 85  }, -- Cybernetic efficiency, tiny reserves
+    
     -- Neutral/Other
     ["Pandaren"]           = { hunger = 105, thirst = 100, fatigue = 105 }, -- Zen discipline, love of food balanced by efficiency
     ["Dracthyr"]           = { hunger = 98,  thirst = 95,  fatigue = 100 }, -- Draconic metabolism = efficient
@@ -264,7 +262,7 @@ ICN2.EMOTES = {
 }
 
 -- ── Threshold levels (% remaining) ───────────────────────────────────────────
--- Thresholds are always percentages (0–100) regardless of point pool size.
+-- Thresholds are in percentages
 ICN2.THRESHOLDS = {
     critical = 15,
     low      = 35,
@@ -289,15 +287,6 @@ function ICN2:GetNeedPercent(need)
 end
 
 -- ── Self-modifier curves (Phase 1 — non-linear decay) ─────────────────────────
--- When a need is already low, its decay accelerates — creating urgency without
--- punishing the player at normal levels.
---
--- Breakpoints (percentages):
---   above low_threshold  → multiplier = 1.0  (no change)
---   low to critical      → low_mult           (mild acceleration)
---   at/below critical    → crit_mult          (strong acceleration)
---
--- Only applies to decay (negative rates). Recovery is never scaled here.
 ICN2.SELF_MODIFIER_CURVES = {
     hunger = {
         low_threshold  = 35,   -- matches ICN2.THRESHOLDS.low
@@ -320,7 +309,6 @@ ICN2.SELF_MODIFIER_CURVES = {
 }
 
 -- ── Cross-need rules (Phase 2 — inter-need coupling) ──────────────────────────
--- When one need is low, it can cause another need to decay faster — creating a sense of interconnectedness and compounding consequences.
 ICN2.CROSS_NEED_RULES = {
     {
         source    = "hunger",
@@ -348,8 +336,6 @@ ICN2.ARMOR_FATIGUE = {
 
 -- ── Fatigue recovery rates (% per second) ────────────────────────────────────
 -- Recovery is a flat rate when resting, modified by armor and situations. Higher values mean faster recovery.
--- At medium preset (1.0×), slow recovery gives 100 points in ~10 minutes, while fast recovery gives 100 points in ~5 minutes.
--- These rates are applied on top of the base decay (which can be negative when recovering), so the net change per second is recovery rate minus decay rate.
 ICN2.FATIGUE_RECOVERY = {
     slow = 100 / 600,   -- ~0.167 pts/s → 100 points in ~10 minutes
     fast = 100 / 300,   -- ~0.333 pts/s → 100 points in ~5 minutes

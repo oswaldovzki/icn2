@@ -99,7 +99,6 @@ end
 function ICN2:UpdateState()
     local s = ICN2.State
 
-    -- inCombat is NOT set here. It's set immediately by PLAYER_REGEN_* events in Core for zero-latency response.
     s.isSwimming = (IsSubmerged and IsSubmerged()) and true or false
     s.isResting  = IsResting()  and true or false
     s.isFlying   = IsFlying()   and true or false
@@ -107,8 +106,7 @@ function ICN2:UpdateState()
     s.isIndoors  = IsIndoors()  and true or false
 
     -- ── Instance detection ────────────────────────────────────────────────────
-    -- Detect dungeons, raids, battlegrounds, arenas (all have tainted auras).
-    -- This prevents "secret string" errors that occur when scanning encounter buffs.
+
     local inInst, instType = IsInInstance()
     s.inInstance = inInst and (instType == "party" or instType == "raid" 
                               or instType == "pvp" or instType == "arena")
@@ -117,7 +115,7 @@ function ICN2:UpdateState()
     if s.inInstance then
         s.nearCampfire = false
         s.inHousing    = false
-        return  -- Exit early — no aura scanning in instances
+        return
     end
 
     if ICN2._auraAccessBlocked then
@@ -127,11 +125,6 @@ function ICN2:UpdateState()
     end
 
     -- ── Aura-based detection ──────────────────────────────────────────────
-    -- Two guards before the scan:
-    --   1. s.inCombat
-    --   2. UnitAffectingCombat. Covers the rare window where encounter auras
-    --      arrive via UNIT_AURA before PLAYER_REGEN_DISABLED fires.
-    -- inHousing is intentionally NOT cleared on combat; the zone is unchanged.
     if s.inCombat or UnitAffectingCombat("player") then
         s.nearCampfire = false
         return
@@ -139,9 +132,6 @@ function ICN2:UpdateState()
 
     local campfireFound = false
 
-    -- Read from the shared aura cache maintained by ICN2_FoodDrink.lua.
-    -- No aura scan here — the cache is already current when UpdateState() is called
-    -- because UNIT_AURA patches it before the tick reads it.
     for _, aura in pairs(ICN2._auraCache or {}) do
         local ok, lower = pcall(function()
             return aura.name and string.lower(aura.name) or ""
@@ -158,7 +148,6 @@ function ICN2:UpdateState()
 
     s.nearCampfire = campfireFound
 
-    -- Housing: campfire buff is the primary signal. Map ID is a belt-and-suspenders fallback.
     local mapID = C_Map.GetBestMapForUnit("player")
     s.inHousing = campfireFound or (mapID ~= nil and ICN2.HOUSING_MAP_IDS[mapID] == true)
 end

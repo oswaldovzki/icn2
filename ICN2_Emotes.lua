@@ -1,9 +1,8 @@
--- ============================================================
+-- =======================================================================================================================================
 -- ICN2_Emotes.lua
 -- Threshold-based automatic emotes and reaction system.
--- Handles automatic emotes when needs cross critical thresholds,
--- and manual emotes for satisfaction events (eating, drinking, resting).
--- ============================================================
+-- Handles automatic emotes when needs cross critical thresholds, and manual emotes for satisfaction events (eating, drinking, resting).
+-- =======================================================================================================================================
 
 ICN2 = ICN2 or {}
 
@@ -18,7 +17,6 @@ local function getTier(val)
 end
 
 -- ── Fire a single emote command ───────────────────────────────────────────────
--- Executes an emote command using the WoW DoEmote API.
 local function fireEmote(emoteCmd)
     if not ICN2DB.settings.emotesEnabled then return end
     if InCombatLockdown() then return end
@@ -28,14 +26,11 @@ local function fireEmote(emoteCmd)
 end
 
 -- ── Random pick from a table ──────────────────────────────────────────────────
--- Selects a random element from a table array.
 local function pick(t)
     return t[math.random(1, #t)]
 end
 
 -- ── Trigger a satisfied emote externally (on eat/drink/rest) ─────────────────
--- Manually triggers a satisfaction emote for specific categories.
--- Used when the player performs actions like eating, drinking, or resting.
 function ICN2:TriggerEmote(category, subKey)
     if not ICN2DB.settings.emotesEnabled then return end
     local now = GetTime()
@@ -55,9 +50,6 @@ function ICN2:TriggerEmote(category, subKey)
 end
 
 -- ── Check for threshold crossings and trigger emotes ─────────────────────────
--- Monitors need values for threshold crossings and triggers appropriate emotes.
--- Called periodically with previous values to detect when needs cross into
--- critical or low threshold zones. Only one emote fires per check (prioritized).
 function ICN2:CheckEmotes(oldHunger, oldThirst, oldFatigue)
     if not ICN2DB.settings.emotesEnabled then return end
 

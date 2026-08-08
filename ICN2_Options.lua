@@ -18,12 +18,11 @@ local tabBtnDecay
 local presetBtns = {}
 local decaySliders = {}
 
--- NEW: Capture UI references for dynamic theme toggling
 local labelDropdown
 local barLengthSlider
 
 -- ── Utility: create a simple label ───────────────────────────────────────────
-local function makeLabel(parent, text, x, y, r, g, b) -- color optional (default white)
+local function makeLabel(parent, text, x, y, r, g, b)
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     fs:SetText(text)
@@ -32,7 +31,7 @@ local function makeLabel(parent, text, x, y, r, g, b) -- color optional (default
 end
 
 -- ── Utility: create a checkbox ───────────────────────────────────────────────
-local function makeCheckbox(parent, label, x, y, getter, setter) -- getter/setter for boolean value
+local function makeCheckbox(parent, label, x, y, getter, setter)
     local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
     cb:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     cb:SetSize(24, 24)
@@ -45,7 +44,7 @@ local function makeCheckbox(parent, label, x, y, getter, setter) -- getter/sette
 end
 
 -- ── Utility: create a simple slider (float) ──────────────────────────────────
-local function makeSlider(parent, labelText, x, y, minVal, maxVal, step, getter, setter) -- getter/setter for numeric value
+local function makeSlider(parent, labelText, x, y, minVal, maxVal, step, getter, setter)
     local slider = CreateFrame("Slider", nil, parent, "OptionsSliderTemplate")
     slider:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     slider:SetWidth(180)
@@ -65,7 +64,6 @@ local function makeSlider(parent, labelText, x, y, minVal, maxVal, step, getter,
     return slider
 end
 
--- ── Decay bias slider: integer 0..max (0 = no passive decay; max = 10× Fast), optional read-only ──
 local function formatBiasLabel(needLabel, sliderPos, decayMult, readOnly)
     local key = readOnly and "BIAS_LABEL_READONLY" or "BIAS_LABEL"
     return string.format(L[key], needLabel, sliderPos, decayMult)
@@ -75,7 +73,7 @@ local function roundBias(n)
     return math.floor((tonumber(n) or 0) + 0.5)
 end
 
-local function getBiasForUI(needKey) -- Converts from internal multiplier to slider position, applying preset if needed.
+local function getBiasForUI(needKey)
     local s = ICN2DB.settings
     if s.preset == "custom" then
         local v = s.customDecayBias and s.customDecayBias[needKey]
@@ -86,7 +84,7 @@ local function getBiasForUI(needKey) -- Converts from internal multiplier to sli
     return roundBias(ICN2:PresetMultiplierToBiasDisplay(m))
 end
 
-local function refreshDecaySliders() -- Updates slider positions and labels based on current settings. Called when opening the tab and when changing presets.
+local function refreshDecaySliders()
     local s = ICN2DB.settings
     local isCustom = (s.preset == "custom")
     local presetGlobal = ICN2.PRESETS[s.preset] or 1.0
@@ -111,7 +109,7 @@ local function refreshDecaySliders() -- Updates slider positions and labels base
     end
 end
 
-local function makeDecayBiasSlider(parent, needKey, needLabel, x, y) -- Creates a slider for adjusting decay bias for a specific need. The slider is read-only unless the "Custom" preset is selected.
+local function makeDecayBiasSlider(parent, needKey, needLabel, x, y)
     local maxM = ICN2.CUSTOM_DECAY_MULTIPLIER_MAX or 30
     local slider = CreateFrame("Slider", nil, parent, "OptionsSliderTemplate")
     slider:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
@@ -167,7 +165,7 @@ local function selectOptionsTab(which)
     end
 end
 
-local function makeTabButton(parent, text, x, y, onClick) -- Utility: creates a button to switch between options tabs. onClick should call selectOptionsTab with the appropriate tab number.
+local function makeTabButton(parent, text, x, y, onClick)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetSize(130, 26)
     b:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
@@ -188,8 +186,6 @@ local function UpdateThemeDependencies()
         showBars = false
     end
 
-    -- Label selection also applies to minimalist themes, whose icon-sized
-    -- overlays are not regular bars.
     UIDropDownMenu_EnableDropDown(labelDropdown)
     labelDropdown:SetAlpha(1.0)
 
@@ -203,9 +199,7 @@ local function UpdateThemeDependencies()
 end
 
 -- ── Build options panel ───────────────────────────────────────────────────────
-function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the options UI. The frame is hidden by default and shown when the user clicks "Options" in the slash command or via Interface Options.
-    decaySliders = {}
-    presetBtns = {}
+function ICN2:BuildOptions()
 
     optFrame = CreateFrame("Frame", "ICN2OptionsFrame", UIParent, "BasicFrameTemplateWithInset")
     optFrame:SetSize(460, 640)
@@ -224,7 +218,7 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
     tabBtnGeneral = makeTabButton(optFrame, L["TAB_GENERAL"], 14, -28, function() selectOptionsTab(1) end)
     tabBtnDecay   = makeTabButton(optFrame, L["TAB_DECAY"],   148, -28, function() selectOptionsTab(2) end)
 
-    -- Content panels (shared area below tabs)
+    -- Content panels
     panelGeneral = CreateFrame("Frame", nil, optFrame)
     panelGeneral:SetPoint("TOPLEFT", optFrame, "TOPLEFT", 0, -58)
     panelGeneral:SetPoint("BOTTOMRIGHT", optFrame, "BOTTOMRIGHT", -6, 6)
@@ -261,7 +255,6 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
     UIDropDownMenu_SetText(paletteDropdown, getPaletteLabel())
 
     UIDropDownMenu_Initialize(paletteDropdown, function(self, level)
-        -- Ensure ICN2.Palettes exists to prevent errors if Data.lua hasn't loaded properly
         if not ICN2.Palettes then return end 
         
         for paletteName, colors in pairs(ICN2.Palettes) do
@@ -280,8 +273,6 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
         end
     end)
 
-    -- Build theme list from HUD_THEME_LIST when available, otherwise fall back to
-    -- enumerating ICN2.HUD_THEMES to avoid hard-coded mismatch during load order.
     local THEMES = {}
     if ICN2 and ICN2.HUD_THEME_LIST then
         for _, t in ipairs(ICN2.HUD_THEME_LIST) do
@@ -330,7 +321,6 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
                 CloseDropDownMenus()
                 ICN2:SetBarTheme(themeId)
 
-                -- Trigger the UI toggle
                 UpdateThemeDependencies()
             end
             UIDropDownMenu_AddButton(info, level)
@@ -540,7 +530,7 @@ function ICN2:BuildOptions() -- Called once on ADDON_LOADED to construct the opt
     end)
 
     selectOptionsTab(1)
-    UpdateThemeDependencies() -- Initialize UI state
+    UpdateThemeDependencies()
 end
 
 -- ── Toggle visibility ─────────────────────────────────────────────────────────
