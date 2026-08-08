@@ -32,20 +32,21 @@ local L = setmetatable({}, { __index = function(_, k) -- fallback for missing lo
 end })
 
 -- ── Frame and tick ────────────────────────────────────────────────────────────
-local frame        = CreateFrame("Frame", "ICN2Frame", UIParent) -- single frame for handling all events and OnUpdate; I keep it local since external modules don't need to access it
-local tickInterval = 1.0 -- seconds between each tick; OnUpdate accumulates elapsed time and triggers a tick when the interval is reached
-local elapsed      = 0 -- accumulator for elapsed time in OnUpdate; when it reaches tickInterval, I reset it and call tick()
+local frame        = CreateFrame("Frame", "ICN2Frame", UIParent)    -- single frame for handling all events and OnUpdate; I keep it local since external modules don't need to access it
+local tickInterval = 1.0                                            -- seconds between each tick; OnUpdate accumulates elapsed time and triggers a tick when the interval is reached
+local elapsed      = 0                                              -- accumulator for elapsed time in OnUpdate; when it reaches tickInterval, I reset it and call tick()
+local sitAirCheckElapsed = 0
 
 -- ── Armor fatigue async cache ───────────────────────────────────────────────────────
 local armorFatigueCache = nil
 
 -- ── Public state (read by HUD, FoodDrink, PrintDetails) ──────────────────────
-ICN2._lastRates             = { hunger = 0, thirst = 0, fatigue = 0 }
-ICN2._lastWellFedInstanceID = nil       -- to track when the "Well Fed" buff is refreshed;
-ICN2._wellFedPauseExpiry    = 0         -- timestamp when the current "Well Fed" pause expires; if GetTime() < this value, hunger decay is paused
-ICN2._fatigueRecoveryTier   = "none"    -- "fast", "slow", or "none" based on current conditions (for PrintDetails)
-ICN2._fatigueRecoverySrc    = ""        -- human-readable description of the source of fatigue recovery (e.g. "resting near campfire") for display in PrintDetails
-ICN2._crossNeedActive       = {}        -- list of active cross-need modifiers for display in PrintDetails (e.g. "hunger → fatigue coupling")
+ICN2._lastRates             = { hunger = 0, thirst = 0, fatigue = 0 }   -- last calculated rates from GetCurrentRates(), for display in /icn2 details
+ICN2._lastWellFedInstanceID = nil                                       -- to track when the "Well Fed" buff is refreshed;
+ICN2._wellFedPauseExpiry    = 0                                         -- timestamp when the current "Well Fed" pause expires; if GetTime() < this value, hunger decay is paused
+ICN2._fatigueRecoveryTier   = "none"                                    -- "fast", "slow", or "none" based on current conditions (for PrintDetails)
+ICN2._fatigueRecoverySrc    = ""                                        -- human-readable description of the source of fatigue recovery (e.g. "resting near campfire") for display in PrintDetails
+ICN2._crossNeedActive       = {}                                        -- list of active cross-need modifiers for display in PrintDetails (e.g. "hunger → fatigue coupling")
 
 -- ══ SECTION 1 — Initialization helpers ════════════════════════════════════════
 local function deepCopy(orig) -- utility function to deep copy a table, used for copying default settings into the saved variable without reference issues
@@ -56,7 +57,7 @@ local function deepCopy(orig) -- utility function to deep copy a table, used for
     return copy
 end
 
-local function migrateCustomDecayBiasFromLegacy() -- one-time migration of old customDecayBias values from a -10..10 slider scale to the new 0..maxM multiplier scale; runs on load if the version key is not yet set to 2
+local function migrateCustomDecayBiasFromLegacy() -- one-time migration of old customDecayBias values; runs on load if the version key is not yet set to 2
     local maxM = ICN2.CUSTOM_DECAY_MULTIPLIER_MAX or 30
     local cb = ICN2DB.settings.customDecayBias
     if not cb then
@@ -87,6 +88,7 @@ local function initDB() -- initializes the saved variable database, applying def
         ICN2DB.hunger  = ICN2:GetMaxValue("hunger")
         ICN2DB.thirst  = ICN2:GetMaxValue("thirst")
         ICN2DB.fatigue = ICN2:GetMaxValue("fatigue")
+        ICN2:RunMigrations()
         return
     end
     if ICN2DB.settings.customDecayBiasVersion ~= 2 then
@@ -113,6 +115,10 @@ local function initDB() -- initializes the saved variable database, applying def
             end
         end
     end
+
+    -- Apply saved-variable migrations before the rate engine is used.
+    ICN2:RunMigrations()
+
     -- ── Point migration (v1.6) ────────────────────────────────────────────────
     -- Old saves stored needs as 0–100 percentages.
     -- Detect by absence of needsPointVersion flag and convert.
@@ -232,14 +238,14 @@ function ICN2:_ApplySituationModifiers(rates) -- scales the current rates by sit
         rates.hunger  = rates.hunger  * (sm.instance.hunger  or 1.0)
         rates.thirst  = rates.thirst  * (sm.instance.thirst  or 1.0)
         rates.fatigue = rates.fatigue * (sm.instance.fatigue or 1.0)
-        return  -- Instance mode overrides all other situational modifiers
+        return
     end
 
     if st.isResting then
         rates.hunger  = rates.hunger  * sm.resting.hunger
         rates.thirst  = rates.thirst  * sm.resting.thirst
         rates.fatigue = rates.fatigue * sm.resting.fatigue
-        return  -- resting is exclusive; skip all other situations
+        return
     end
 
     if st.isMounted then
@@ -270,7 +276,8 @@ function ICN2:_ApplySituationModifiers(rates) -- scales the current rates by sit
 end
 
 -- ── 3. Race + class modifiers ─────────────────────────────────────────────────
-function ICN2:_ApplyRaceClassModifiers(rates) -- Scales the current rates by biological trait multipliers from ICN2_Data.
+-- Scales the current rates by biological trait multipliers from ICN2_Data.
+function ICN2:_ApplyRaceClassModifiers(rates)
     local race = select(2, UnitRace("player"))
     local rm   = ICN2.RACE_MODIFIERS[race]
     if rm then
@@ -330,7 +337,8 @@ function ICN2:_ApplyCrossNeedModifiers(rates)
 end
 
 -- ── 6. Armor modifier ─────────────────────────────────────────────────────────
-function ICN2:_ApplyArmorModifier(rates) -- Scales fatigue decay by armor type.
+-- Scales fatigue decay by armor type.
+function ICN2:_ApplyArmorModifier(rates)
     local armor = armorFatigueCache or ICN2.ARMOR_FATIGUE.CLOTH
     rates.fatigue = rates.fatigue * armor
 end
@@ -360,9 +368,10 @@ end
 
 -- ── 8. Fatigue recovery ───────────────────────────────────────────────────────
 -- Tiers:
---   fast → IsResting() AND (nearCampfire OR inHousing)   — ~5 min for 100 points
---   slow → any single condition                          — ~10 min for 100 points
+--   fast → more than 1 source of recovery (e.g. resting near campfire in housing)
+--   slow → sitting, campfire, housing, or eating/drinking
 --   none → no qualifying condition, or in combat
+-- A rested area by itself pauses fatigue decay but does not recover it.
 function ICN2:_ApplyFatigueRecovery(rates)
     local st = ICN2.State
     if st.inCombat then
@@ -384,8 +393,7 @@ function ICN2:_ApplyFatigueRecovery(rates)
         table.insert(src, L["SRC_RESTED_AREA"])
         if st.nearCampfire then table.insert(src, L["SRC_CAMPFIRE"]) end
         if st.inHousing    then table.insert(src, L["SRC_HOUSING"])  end
-
-    elseif st.isResting or st.isSitting or st.nearCampfire or st.inHousing or isEatDrink then
+    elseif st.isSitting or st.nearCampfire or st.inHousing or isEatDrink then
         gain = recSlow
         tier = "slow"
         if st.isResting    then table.insert(src, L["SRC_RESTED_AREA"])  end
@@ -401,7 +409,8 @@ function ICN2:_ApplyFatigueRecovery(rates)
 end
 
 -- ── 9. Well Fed pause ─────────────────────────────────────────────────────────
-function ICN2:_ApplyWellFedPause(rates) -- if the Well Fed buff was refreshed within the last 5 minutes, pause hunger decay by zeroing out any negative hunger rate; does not affect thirst or fatigue
+-- If the Well Fed buff was refreshed within the last 5 minutes, pause hunger decay by zeroing out any negative hunger rate; does not affect thirst or fatigue
+function ICN2:_ApplyWellFedPause(rates)
     if ICN2._wellFedPauseExpiry and GetTime() < ICN2._wellFedPauseExpiry then
         if rates.hunger < 0 then rates.hunger = 0 end
     end
@@ -425,7 +434,8 @@ function ICN2:GetCurrentRates()
 end
 
 -- ══ SECTION 4 — Tick ═══════════════════════════════════════════════════════════
-local function clamp(v, maxV) -- utility function to clamp a value between 0 and maxV; used to ensure need values don't go negative or exceed their maximum.
+-- utility function to clamp a value between 0 and maxV; used to ensure need values don't go negative or exceed their maximum.
+local function clamp(v, maxV) 
     maxV = maxV or 100
     if v < 0    then return 0    end
     if v > maxV then return maxV end
@@ -455,13 +465,13 @@ end
     ICN2DB.thirst  = clamp(ICN2DB.thirst  + thirstDelta,  ICN2:GetMaxValue("thirst"))
     ICN2DB.fatigue = clamp(ICN2DB.fatigue + fatigueDelta, ICN2:GetMaxValue("fatigue"))
 
-    ICN2._lastRates = rates  -- Store unmodified rates for /icn2 details display
+    ICN2._lastRates = rates
 
     ICN2:UpdateHUD()
     ICN2:CheckEmotes(oldH, oldT, oldF)
 end
 
--- Manual recovery — amount is in FIXED POINTS, same for all races.
+-- Manual recovery by a fixed amount, same for all races.
 function ICN2:Eat(amount)
     local maxH = ICN2:GetMaxValue("hunger")
     ICN2DB.hunger = clamp(ICN2DB.hunger + (amount or 50), maxH)
@@ -484,17 +494,22 @@ function ICN2:Rest(amount)
 end
 
 -- ══ SECTION 6 — Events ═════════════════════════════════════════════════════════
--- We register for all relevant events on the single frame, and handle them in a unified OnEvent function. This keeps the event handling logic centralized and easier to manage.
+-- I register for all relevant events on the single frame, and handle them in a unified OnEvent function. This keeps the event handling logic centralized and easier to manage.
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_LOGOUT")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+frame:RegisterEvent("PLAYER_STARTED_MOVING")
+frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+frame:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
 frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+frame:RegisterEvent("UNIT_SPELLCAST_START")
 frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 frame:RegisterEvent("UNIT_AURA")
 
 frame:SetScript("OnEvent", function(self, event, ...)
+-- unified event handler for all registered events; dispatches to the appropriate logic based on the event type
     if event == "ADDON_LOADED" then
         local name = ...
         if name == "ICN2" then
@@ -505,10 +520,11 @@ frame:SetScript("OnEvent", function(self, event, ...)
         end
 
     elseif event == "PLAYER_LOGIN" then
+        ICN2:InitSittingHooks()
         applyOfflineDecay()
         C_Timer.After(1, function()
             refreshArmorCache()
-            ICN2:InitAuraCache()  -- seed persistent aura cache; must run after world is ready
+            ICN2:InitAuraCache()
         end)
         ICN2:UpdateHUD()
 
@@ -517,11 +533,11 @@ frame:SetScript("OnEvent", function(self, event, ...)
 
     elseif event == "PLAYER_REGEN_DISABLED" then
         ICN2.State.inCombat = true
+        ICN2:ClearSitting()
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         ICN2.State.inCombat = false
         ICN2:OnCombatBreakFoodDrink()
-        -- If HUD show was deferred during combat, show it now (safe to call)
         if ICN2._hudPendingShow ~= nil then
             local hud = _G and _G["ICN2HUDFrame"]
             if hud and ICN2._hudPendingShow then
@@ -530,13 +546,42 @@ frame:SetScript("OnEvent", function(self, event, ...)
             ICN2._hudPendingShow = nil
         end
 
+    elseif event == "PLAYER_STARTED_MOVING" then
+        ICN2:ClearSitting()
+
+    elseif event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
+        if IsMounted() then
+            ICN2:ClearSitting()
+        end
+
+    elseif event == "CHAT_MSG_TEXT_EMOTE" then
+        local message = tostring((...))
+        local playerName = UnitName("player")
+        if playerName and message:find(playerName, 1, true) then
+            local lower = string.lower(message)
+            if lower:find("sit", 1, true) then
+                ICN2:SetSitting(true)
+            elseif lower:find("stand", 1, true) then
+                ICN2:SetSitting(false)
+            end
+        end
+
+    elseif event == "UNIT_SPELLCAST_START" then
+        local unit = ...
+        if unit == "player" then
+            ICN2:ClearSitting()
+        end
+
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
         local slot = ...
         if slot == 5 then refreshArmorCache() end
 
     elseif event == "UNIT_AURA" then
         local unit, updateInfo = ...
-        if unit == "player" then ICN2:OnUnitAura(updateInfo) end
+        if unit == "player" then
+            ICN2:OnUnitAura(updateInfo)
+            if IsMounted() then ICN2:ClearSitting() end
+        end
 
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         local unit, _, spellID = ...
@@ -545,7 +590,18 @@ frame:SetScript("OnEvent", function(self, event, ...)
 end)
 
 -- ── OnUpdate ──────────────────────────────────────────────────────────────────
-frame:SetScript("OnUpdate", function(self, dt) -- accumulates elapsed time and triggers a tick when the specified interval is reached.
+-- accumulates elapsed time and triggers a tick when the specified interval is reached.
+frame:SetScript("OnUpdate", function(self, dt) 
+    if ICN2.State.isSitting then
+        sitAirCheckElapsed = sitAirCheckElapsed + dt
+        if sitAirCheckElapsed >= 0.2 then
+            sitAirCheckElapsed = 0
+            if IsFalling() then ICN2:ClearSitting() end
+        end
+    else
+        sitAirCheckElapsed = 0
+    end
+
     elapsed = elapsed + dt
     if elapsed >= tickInterval then
         elapsed = 0
@@ -558,9 +614,10 @@ frame:SetScript("OnUpdate", function(self, dt) -- accumulates elapsed time and t
 end)
 
 -- ── Stubs ─────────────────────────────────────────────────────────────────────
-function ICN2:RestStanceTick() end -- stub for future use; called each tick after UpdateState, currently does nothing
+-- stub for future use; called each tick after UpdateState, currently does nothing
+function ICN2:RestStanceTick() end
 
--- ══ SECTION 7 — Racial / class ability recovery ════════════════════════════════
+-- ══ SECTION 7 — Racial / Class ability recovery ════════════════════════════════
 
 ICN2._activeSpellRecoveries = {}
 
@@ -623,12 +680,11 @@ function ICN2:SpellRecoveryTick()
 end
 
 -- ══ SECTION 8 — /icn2 details ══════════════════════════════════════════════════
-local function getSituationLabels() -- generates a list of active situation labels with their corresponding modifiers for display in the /icn2 details output
+-- generates a list of active situation labels with their corresponding modifiers for display in the /icn2 details output
+local function getSituationLabels() 
     local labels = {}
     local sm = ICN2.SITUATION_MODIFIERS
     local st = ICN2.State
-
-    -- Show instance status prominently if active
     if st.inInstance then
         table.insert(labels, string.format(L["SIT_INSTANCE"],
             sm.instance.hunger, sm.instance.thirst, sm.instance.fatigue))

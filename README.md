@@ -11,6 +11,7 @@ ICN2 uses a dynamic **Rate Engine** that reacts to your actions, surroundings, a
 
 - **Real-time need tracking** for Hunger, Thirst, and Fatigue.
 - **Situational modifiers** for swimming, flying, mounted travel, combat, resting, indoors, and instanced content.
+- **Sitting detection** through the sit/stand keybind and built-in `/sit` and `/stand` commands.
 - **Race/class modifiers** for a more immersive and balanced experience.
 - **Well-Fed bonus**: Food or drink can pause hunger decay for a short time.
 - **Immersive emotes**: Automatic low-need emotes with configurable chance and cooldown.
@@ -35,7 +36,10 @@ ICN2 fits your playstyle with adjustable decay presets:
 
 - At the medium preset, base decay is roughly **50 Hunger/Thirst points per 30 minutes** and **30 Fatigue points per 30 minutes**.
 - Custom mode supports values from **zero passive decay** up to much faster drain.
-- Fatigue recovers faster while resting, sitting, near campfires, or inside housing.
+- Rested areas pause fatigue decay; they do not recover fatigue on their own.
+- Fatigue recovers while sitting, eating or drinking, near campfires, or inside housing.
+- Rested areas combined with a campfire or housing provide fast recovery.
+- Sitting ends automatically when moving, jumping, casting, entering combat, mounting, or standing.
 - If one need reaches 0%, the others may decay faster through cross-need effects.
 - Needs are stored in race-specific point pools, so each race has its own maximum values.
 
