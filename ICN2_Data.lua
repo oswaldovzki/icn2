@@ -10,7 +10,7 @@ local L = setmetatable({}, { __index = function(_, k)
 end })
 
 -- Reset savedvariables.decayrates to new 2.0 logic
-local CURRENT_VERSION = 300
+local CURRENT_VERSION = 301
 
 function ICN2:RunMigrations()
     if not ICN2DB.settings then
@@ -39,6 +39,18 @@ function ICN2:RunMigrations()
 
         ICN2DB.version = 300
         print("|cFFFF6600ICN2|r: HUD position reset for v3 layout.")
+    end
+
+    -- v3.0.1: ensure live saved decay rates match the current defaults.
+    -- Older clients retained stale rates because existing SavedVariables
+    -- were only filled when keys were missing.
+    if not ICN2DB.version or ICN2DB.version < 301 then
+        ICN2DB.settings.decayRates = {}
+        for k, v in pairs(ICN2.DEFAULTS.settings.decayRates) do
+            ICN2DB.settings.decayRates[k] = v
+        end
+        ICN2DB.version = CURRENT_VERSION
+        print("|cFFFF6600ICN2|r: Decay rates loaded from current defaults.")
     end
 end
 
@@ -134,7 +146,10 @@ ICN2.SITUATION_MODIFIERS = {
     swimming   = { hunger = 1.4, thirst = 1.5, fatigue = 1.8 },
     flying     = { hunger = 0.9, thirst = 1.1, fatigue = 0.6 },
     mounted    = { hunger = 0.8, thirst = 0.9, fatigue = 0.5 },
-    resting    = { hunger = 0.5, thirst = 0.6, fatigue = 0.2 },
+    -- Rested areas pause fatigue decay completely.  Fatigue recovery is
+    -- applied separately by ICN2:_ApplyFatigueRecovery(), so sitting,
+    -- eating/drinking, campfires, and housing can still restore fatigue.
+    resting    = { hunger = 0.5, thirst = 0.6, fatigue = 0.0 },
     combat     = { hunger = 1.3, thirst = 1.2, fatigue = 1.5 },
     indoors    = { hunger = 1.0, thirst = 1.0, fatigue = 0.8 },
     instance   = { hunger = 1.2, thirst = 1.2, fatigue = 1.0 },

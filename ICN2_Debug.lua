@@ -42,13 +42,16 @@ local function getStandState() -- returns a human-readable string for the player
 end
 
 -- ── Resolve active situation modifiers ───────────────────────────────────────
--- Checks all situation flags in the current state and gathers their active modifiers.
--- Resting is exclusive and takes priority over all others. Indoors only applies if
+-- Mirrors _ApplySituationModifiers exactly, including instance priority.
 local function getActiveSituations()
     local st  = ICN2.State or {}
     local sm  = ICN2.SITUATION_MODIFIERS or {}
     local out = {}
 
+    if st.inInstance then
+        out.instance = sm.instance or {}
+        return out
+    end
     if st.isResting then
         out.resting = sm.resting or {}
         return out
@@ -135,7 +138,7 @@ local function getFatigueRecovery()
                     or tier == "slow" and fr.slow
                     or 0,
         fast_threshold = "IsResting AND (nearCampfire OR inHousing)",
-        slow_threshold = "any single: isResting | isSitting | nearCampfire | inHousing | eating/drinking",
+        slow_threshold = "any single: isSitting | nearCampfire | inHousing | eating/drinking (isResting alone only pauses fatigue decay)",
     }
 end
 
@@ -230,17 +233,22 @@ local function getRatePipeline()
         snapshot("7_food_drink_recovery")
     end
     
+    if ICN2._ApplySpellRecovery then
+        ICN2:_ApplySpellRecovery(rates)
+        snapshot("8_spell_recovery")
+    end
+
     if ICN2._ApplyFatigueRecovery then
         ICN2:_ApplyFatigueRecovery(rates)
-        snapshot("8_fatigue_recovery")
+        snapshot("9_fatigue_recovery")
     end
     
     if ICN2._ApplyWellFedPause then
         ICN2:_ApplyWellFedPause(rates)
-        snapshot("9_well_fed_pause")
+        snapshot("10_well_fed_pause")
     end
     
-    snapshot("10_final")
+    snapshot("11_final")
     
     return pipeline
 end
@@ -328,6 +336,7 @@ local function buildSnapshot()
             isIndoors   = st.isIndoors   or false,
             nearCampfire = st.nearCampfire or false,
             inHousing   = st.inHousing   or false,
+            inInstance  = st.inInstance  or false,
             standState  = getStandState(),
         },
 

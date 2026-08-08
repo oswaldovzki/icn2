@@ -6,6 +6,35 @@
 - This behavior has been reported to Blizzard; it is unclear whether it is intended.
 - Workaround: Manually replenish the "Thirst" state via the ICN2 settings menu.
 
+## v2.8.1
+
+### Base Decay rate fix
+
+- Added a migration version 301.
+- decayRates now load from current defaults once during login/reload.
+- Existing stale values such as 0.055560 will be replaced with the current medium defaults:Hunger/thirst: 0.0255 | - Fatigue: 0.0138
+- After migration, manual changes to decayRates will persist normally.
+- Migration now actually runs during database initialization.
+
+### Debug improvements
+
+- Reports inInstance.
+- Correctly shows instance as the active situation.
+- Uses the same priority logic as the rate engine.
+- Includes the missing spell-recovery pipeline stage.
+- Updated pipeline numbering and fatigue recovery text.
+
+## v2.8.0
+
+### Resting and Sitting
+
+- Added reliable sitting detection for the sit/stand keybind and built-in `/sit` and `/stand` commands.
+- Sitting now contributes to slow fatigue recovery and is exposed through `ICN2.State.isSitting`.
+- Sitting state is cleared when the player moves, jumps, casts, enters combat, mounts, or stands.
+- Rested areas now pause fatigue decay completely instead of recovering fatigue by themselves.
+- Fatigue recovery still occurs when the player is sitting, eating or drinking, near a campfire, or inside housing.
+- Rested areas combined with campfires or housing provide fast recovery; rested areas alone produce a net fatigue rate of zero.
+
 ## v2.7.0
 
 ### HUD and Theme Engine
