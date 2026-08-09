@@ -734,79 +734,71 @@ local function getSituationLabels()
     return labels
 end
 
-function ICN2:PrintDetails() -- prints detailed information about the current rates, active modifiers, and recovery sources to the chat window for debugging and transparency; called by /icn2 details
+function ICN2:PrintDetails() -- prints a player-friendly status summary; raw multipliers and pipeline data are available through /icn2 debug
     local s = ICN2DB.settings
-    local mh = ICN2:GetEffectiveDecayMultiplier("hunger")
-    local mt = ICN2:GetEffectiveDecayMultiplier("thirst")
-    local mf = ICN2:GetEffectiveDecayMultiplier("fatigue")
-    local rates  = ICN2:GetCurrentRates()
-    local armor  = armorFatigueCache or ICN2.ARMOR_FATIGUE.CLOTH
-    local labels = getSituationLabels()
-
-    local armorName = "CLOTH"
-    if     armor == ICN2.ARMOR_FATIGUE.PLATE   then armorName = "PLATE"
-    elseif armor == ICN2.ARMOR_FATIGUE.MAIL    then armorName = "MAIL"
-    elseif armor == ICN2.ARMOR_FATIGUE.LEATHER then armorName = "LEATHER"
-    end
-
-    local maxF       = ICN2:GetMaxValue("fatigue")
-    local fatigueGain = ((ICN2._fatigueRecoveryTier == "fast" and ICN2.FATIGUE_RECOVERY.fast)
-                      or (ICN2._fatigueRecoveryTier == "slow" and ICN2.FATIGUE_RECOVERY.slow)
-                      or 0)  -- Already in points/sec, no scaling needed
-
-    local P   = "|cFFFF6600ICN2|r"
+    local rates = ICN2:GetCurrentRates()
+    local P = "|cFFFF6600ICN2|r"
     local sep = "|cFF555555--------------------------------|r"
 
-    local presetLine
-    if s.preset == "custom" then
-        local function pbPrint(cb, key)
-            if not cb or cb[key] == nil then return 1 end
-            return math.floor(cb[key])
+    local situation = L["DETAILS_SITUATION_IDLE"]
+    local st = ICN2.State
+    if st.inInstance then situation = L["DETAILS_SITUATION_INSTANCE"]
+    elseif st.isResting then situation = L["DETAILS_SITUATION_RESTING"]
+    elseif st.inCombat then situation = L["DETAILS_SITUATION_COMBAT"]
+    elseif st.isMounted then situation = L["DETAILS_SITUATION_MOUNTED"]
+    elseif st.isFlying then situation = L["DETAILS_SITUATION_FLYING"]
+    elseif st.isSwimming then situation = L["DETAILS_SITUATION_SWIMMING"]
+    elseif st.isIndoors then situation = L["DETAILS_SITUATION_INDOORS"] end
+
+    local function formatEmptyTime(rate, current)
+        if rate >= 0 then return nil end
+        local minutes = math.max(0, current / math.abs(rate) / 60)
+        if minutes < 1 then return L["DETAILS_EMPTY_NOW"] end
+        if minutes < 60 then return string.format(L["DETAILS_EMPTY_MINUTES"], math.floor(minutes + 0.5)) end
+        local hours = math.floor(minutes / 60)
+        local remainder = math.floor(minutes % 60 + 0.5)
+        if remainder == 60 then hours, remainder = hours + 1, 0 end
+        if remainder == 0 then return string.format(L["DETAILS_EMPTY_HOURS_ONLY"], hours) end
+        return string.format(L["DETAILS_EMPTY_HOURS"], hours, remainder)
+    end
+
+    local function printNeed(key, value, maxValue, rate)
+        local pct = ICN2:GetNeedPercent(key)
+        local perMinute = rate * 60
+        if rate < 0 then
+            print(string.format(P .. " " .. L["DETAILS_DECAY"], L[string.upper(key)], pct, value, maxValue, math.abs(perMinute), formatEmptyTime(rate, value)))
+        elseif rate > 0 then
+            print(string.format(P .. " " .. L["DETAILS_RECOVERY"], L[string.upper(key)], pct, value, maxValue, perMinute))
+        else
+            print(string.format(P .. " " .. L["DETAILS_PAUSED"], L[string.upper(key)], pct, value, maxValue))
         end
-        presetLine = string.format(
-            L["PRESET_CUSTOM"],
-            mh, mt, mf,
-            pbPrint(s.customDecayBias, "hunger"),
-            pbPrint(s.customDecayBias, "thirst"),
-            pbPrint(s.customDecayBias, "fatigue")
-        )
-    else
-        local dispBias = ICN2:PresetMultiplierToBiasDisplay(ICN2.PRESETS[s.preset] or 1.0)
-        presetLine = string.format(L["PRESET_NAMED"],
-            s.preset, ICN2.PRESETS[s.preset] or 1.0,
-            dispBias,
-            ICN2.CUSTOM_DECAY_MULTIPLIER_MAX or 30)
     end
-    print(P .. " " .. L["DETAILS_HEADER"] .. presetLine)
+
+    print(P .. " " .. string.format(L["DETAILS_PLAYER_HEADER"], situation))
+    print(P .. " " .. string.format(L["DETAILS_PRESET"], s.preset))
     print(sep)
-    local function ceil2(v)
-        if not v or type(v) ~= "number" then return v end
-        return math.ceil(v * 100) / 100
-    end
-    print(string.format(P .. " " .. L["DETAILS_HUNGER_LINE"],
-        ICN2:GetNeedPercent("hunger"),  ICN2DB.hunger,  ICN2:GetMaxValue("hunger"),  ceil2(rates.hunger * 60)))
-    print(string.format(P .. " " .. L["DETAILS_THIRST_LINE"],
-        ICN2:GetNeedPercent("thirst"),  ICN2DB.thirst,  ICN2:GetMaxValue("thirst"),  ceil2(rates.thirst * 60)))
-    print(string.format(P .. " " .. L["DETAILS_FATIGUE_LINE"],
-        ICN2:GetNeedPercent("fatigue"), ICN2DB.fatigue, ICN2:GetMaxValue("fatigue"), ceil2(rates.fatigue * 60), fatigueGain, ICN2._fatigueRecoveryTier))
+    printNeed("hunger", ICN2DB.hunger, ICN2:GetMaxValue("hunger"), rates.hunger)
+    printNeed("thirst", ICN2DB.thirst, ICN2:GetMaxValue("thirst"), rates.thirst)
+    printNeed("fatigue", ICN2DB.fatigue, ICN2:GetMaxValue("fatigue"), rates.fatigue)
     print(sep)
-    print(P .. " " .. L["DETAILS_ACTIVE_MOD"])
-    if #labels == 0 then
-        print(L["DETAILS_NO_MOD"])
-    else
-        for _, lbl in ipairs(labels) do print("  |cFFCCCCCC" .. lbl .. "|r") end
-    end
-    print(string.format(L["DETAILS_ARMOR"], armorName, armor))
+
+    local effects = {}
+    local _, class = UnitClass("player")
+    if class then table.insert(effects, class) end
+    local armorName = "Cloth armor"
+    local armor = armorFatigueCache or ICN2.ARMOR_FATIGUE.CLOTH
+    if armor == ICN2.ARMOR_FATIGUE.PLATE then armorName = "Plate armor"
+    elseif armor == ICN2.ARMOR_FATIGUE.MAIL then armorName = "Mail armor"
+    elseif armor == ICN2.ARMOR_FATIGUE.LEATHER then armorName = "Leather armor" end
+    table.insert(effects, armorName)
+    print(P .. " " .. string.format(L["DETAILS_EFFECTS"], table.concat(effects, ", ")))
+
     if ICN2._fatigueRecoveryTier ~= "none" then
-        print(string.format(L["DETAILS_FAT_RECOVERY"],
+        print(P .. " " .. string.format(L["DETAILS_FAT_RECOVERY_SIMPLE"],
             ICN2._fatigueRecoveryTier,
-            ICN2._fatigueRecoverySrc ~= "" and ICN2._fatigueRecoverySrc or "n/a"))
+            ICN2._fatigueRecoverySrc ~= "" and ICN2._fatigueRecoverySrc or L["DETAILS_NONE"]))
     end
-    if ICN2._crossNeedActive and #ICN2._crossNeedActive > 0 then
-        print(string.format(L["DETAILS_CROSS_NEED"],
-            table.concat(ICN2._crossNeedActive, ", ")))
-    end
-    print(sep)
+
     if ICN2:IsEating() then
         print(string.format(P .. " " .. L["DETAILS_EATING"], ICN2:GetFoodTier()))
     end

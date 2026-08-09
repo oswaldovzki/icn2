@@ -6,6 +6,21 @@
 - This behavior has been reported to Blizzard; it is unclear whether it is intended.
 - Workaround: Manually replenish the "Thirst" state via the ICN2 settings menu.
 
+## v2.8.2
+
+### Details and Debug improvements
+
+- `/icn2 details` now shows:
+  - Current situation in plain language
+  - Preset name
+  - Current percentage and points
+  - Decay/recovery speed in points per minute
+  - Estimated time until empty
+  - Paused decay when applicable
+  - Simple effects summary
+  - Recovery, eating, drinking, and Well Fed status
+- `/icn2 debug` has now been updated with current v2.8 code changes.
+
 ## v2.8.1
 
 ### Base Decay rate fix
