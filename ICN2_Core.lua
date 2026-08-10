@@ -517,6 +517,7 @@ frame:SetScript("OnEvent", function(self, event, ...)
             initDB()
             ICN2:BuildHUD()
             ICN2:BuildOptions()
+            ICN2:InitMinimapButton()
             print("|cFFFF6600ICN2|r " .. L["MSG_LOADED"])
         end
 

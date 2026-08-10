@@ -92,6 +92,9 @@ ICN2.DEFAULTS = {
         hudX          = nil,
         hudY          = nil,
 
+        -- Minimap launcher
+        minimapButton = true,
+
         -- Offline decay
         freezeOfflineNeeds = false,
 
@@ -109,6 +112,9 @@ ICN2.DEFAULTS = {
         thirst  = {0.2, 0.5, 1.0},
         fatigue = {1.0, 0.85, 0.1}
     },
+
+    -- LibDBIcon persists the launcher's angle and visibility here.
+    minimap = { hide = false },
 }
 
 ICN2.Palettes = {
