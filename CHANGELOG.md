@@ -6,6 +6,14 @@
 - This behavior has been reported to Blizzard; it is unclear whether it is intended.
 - Workaround: Manually replenish the "Thirst" state via the ICN2 settings menu.
 
+## v2.8.3
+
+### Hotfixes
+
+- Removed the temporary chat messages printed when the player sits or stands.
+- Sitting in a rested area now triggers fast-tier fatigue recovery.
+- Rested areas without a recovery trigger continue to pause fatigue decay.
+
 ## v2.8.2
 
 ### Details and Debug improvements
