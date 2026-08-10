@@ -132,7 +132,7 @@ local function getFatigueRecovery()
         gain_per_sec = tier == "fast" and fr.fast
                     or tier == "slow" and fr.slow
                     or 0,
-        fast_threshold = "IsResting AND (nearCampfire OR inHousing)",
+        fast_threshold = "IsResting AND (isSitting OR nearCampfire OR inHousing)",
         slow_threshold = "any single: isSitting | nearCampfire | inHousing | eating/drinking (isResting alone only pauses fatigue decay)",
     }
 end

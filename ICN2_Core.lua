@@ -368,7 +368,7 @@ end
 
 -- ── 8. Fatigue recovery ───────────────────────────────────────────────────────
 -- Tiers:
---   fast → more than 1 source of recovery (e.g. resting near campfire in housing)
+--   fast → resting while sitting, near a campfire, or in housing
 --   slow → sitting, campfire, housing, or eating/drinking
 --   none → no qualifying condition, or in combat
 -- A rested area by itself pauses fatigue decay but does not recover it.
@@ -387,10 +387,11 @@ function ICN2:_ApplyFatigueRecovery(rates)
     local recFast    = ICN2.FATIGUE_RECOVERY.fast
     local recSlow    = ICN2.FATIGUE_RECOVERY.slow
 
-    if st.isResting and (st.nearCampfire or st.inHousing) then
+    if st.isResting and (st.isSitting or st.nearCampfire or st.inHousing) then
         gain = recFast
         tier = "fast"
         table.insert(src, L["SRC_RESTED_AREA"])
+        if st.isSitting    then table.insert(src, L["SRC_SITTING"])   end
         if st.nearCampfire then table.insert(src, L["SRC_CAMPFIRE"]) end
         if st.inHousing    then table.insert(src, L["SRC_HOUSING"])  end
     elseif st.isSitting or st.nearCampfire or st.inHousing or isEatDrink then
@@ -516,6 +517,7 @@ frame:SetScript("OnEvent", function(self, event, ...)
             initDB()
             ICN2:BuildHUD()
             ICN2:BuildOptions()
+            ICN2:InitMinimapButton()
             print("|cFFFF6600ICN2|r " .. L["MSG_LOADED"])
         end
 

@@ -1,129 +1,114 @@
-﻿# ICN2: Immersive Character Needs 2
+# ICN2 — Immersive Character Needs 2
 
-**ICN2** is a lightweight survival simulation addon for *World of Warcraft*.  
-Designed for roleplayers and immersion enthusiasts, it adds the missing layer of biological needs to your character: **Hunger, Thirst, and Fatigue**.  
+ICN2 adds three survival-style needs to your *World of Warcraft* character:
 
-ICN2 uses a dynamic **Rate Engine** that reacts to your actions, surroundings, and equipment. Your character’s needs change based on movement, combat, rest, mounts, and more.
+- Hunger
+- Thirst
+- Fatigue
 
----
+It is designed for roleplay and immersion. Your needs change naturally as you travel, fight, swim, fly, rest, eat, drink, and spend time in the world.
 
-## ✨ Features
+## Quick start
 
-- **Real-time need tracking** for Hunger, Thirst, and Fatigue.
-- **Situational modifiers** for swimming, flying, mounted travel, combat, resting, indoors, and instanced content.
-- **Sitting detection** through the sit/stand keybind and built-in `/sit` and `/stand` commands.
-- **Race/class modifiers** for a more immersive and balanced experience.
-- **Well-Fed bonus**: Food or drink can pause hunger decay for a short time.
-- **Immersive emotes**: Automatic low-need emotes with configurable chance and cooldown.
-- **Custom HUD**: Draggable, scalable, themeable display with optional tooltips.
-- **Manual restore controls** from slash commands or the options UI.
+After installing ICN2, the HUD appears automatically. Use it to see your current needs at a glance.
 
----
+Type `/icn2` to open the options menu. From there you can choose a theme, adjust the HUD, select a decay pace, and configure emotes.
 
-## 🎮 Choose Your Pace
+If the minimap button is enabled, it provides the same shortcuts:
 
-ICN2 fits your playstyle with adjustable decay presets:
+- Left-click: open the options menu
+- Right-click: toggle the HUD
+- Ctrl+left-click: open the debug window
 
-- **Fast**: Accelerated need decay for a survival challenge.
-- **Medium**: Balanced default pace.
-- **Slow**: Easier decay for casual roleplay.
-- **Realistic**: Very slow decay for long play sessions.
-- **Custom**: Independently bias Hunger, Thirst, and Fatigue.
+The minimap button is enabled by default and can be hidden from the General options tab.
 
----
+## How the needs work
 
-## 🧠 Simulation Details
+Needs normally decay over real time. The current situation changes the rate, so the pace is not identical everywhere.
 
-- At the medium preset, base decay is roughly **50 Hunger/Thirst points per 30 minutes** and **30 Fatigue points per 30 minutes**.
-- Custom mode supports values from **zero passive decay** up to much faster drain.
-- Rested areas pause fatigue decay; they do not recover fatigue on their own.
-- Fatigue recovers while sitting, eating or drinking, near campfires, or inside housing.
-- Rested areas combined with a campfire or housing provide fast recovery.
-- Sitting ends automatically when moving, jumping, casting, entering combat, mounting, or standing.
-- If one need reaches 0%, the others may decay faster through cross-need effects.
-- Needs are stored in race-specific point pools, so each race has its own maximum values.
+- Combat increases the pressure on your needs.
+- Swimming, flying, and mounted travel use their own movement modifiers.
+- Rested areas reduce Hunger and Thirst decay and pause Fatigue decay. A rested area alone does not restore Fatigue.
+- Sitting, eating or drinking, campfires, and housing can restore Fatigue.
+- Sitting in a rested area, or using a campfire or housing while rested, provides faster Fatigue recovery.
+- Entering combat, moving, jumping, casting, mounting, or standing ends the sitting state.
+- A Well Fed effect can temporarily pause Hunger decay.
+- Race, class, armor, and empty needs can affect the final rate.
 
----
+At the Medium preset, the base pace is approximately 46 Hunger/Thirst points and 25 Fatigue points per 30 minutes before situational modifiers are applied. Each race has its own maximum need pools, so the displayed percentage is the most useful comparison between characters.
 
-## 🎨 HUD & Themes
+## Choosing a decay pace
 
-- Multiple HUD themes, including **Colorful**, **Minimalist**, **Smooth**, **Blocky**, **Folk**, **Necromancer**, **Dastardly**, and **Vanguard**.
-- Color palettes include **Default** and **Colorblind_OkabeIto**.
-- Theme-specific textures, colors, opacity, fill direction, overlays, sizing,
-  and positioning are supported by the theme engine.
-- **Colorful** uses custom bar textures; other themes use translucent solid
-  fills so need icons remain visible.
-- **Minimalist Vertical** and **Minimalist Horizontal** use icon-sized,
-  top-to-bottom depletion overlays with configurable label modes.
-- Adjustable opacity, scale, bar length, and label mode for all themes.
-- Lock HUD position to prevent accidental movement.
+The Decay & rates tab offers five presets:
 
----
+- Fast — needs fall quickly.
+- Medium — the default balanced pace.
+- Slow — needs fall more gradually.
+- Realistic — very slow decay for long roleplay sessions.
+- Custom — set an independent decay bias for Hunger, Thirst, and Fatigue.
 
-## 📜 Commands
+Custom bias `0` means that need has no passive decay. Recovery effects can still apply.
 
-- `/icn2` or `/icn2 show` → Open the options panel.
-- `/icn2 status` → Show current Hunger/Thirst/Fatigue in chat.
-- `/icn2 details` → Show active modifiers, recovery sources, and net rates.
-- `/icn2 hud` → Toggle the HUD display.
-- `/icn2 lock` → Toggle HUD lock.
-- `/icn2 reset` → Reset all needs to full.
-- `/icn2 eat` → Restore 50 Hunger.
-- `/icn2 drink` → Restore 50 Thirst.
-- `/icn2 rest` → Restore 40 Fatigue.
-- `/icn2 starve` → Set Hunger to 0.
-- `/icn2 dehydrate` → Set Thirst to 0.
-- `/icn2 exhaust` → Set Fatigue to 0.
+## HUD and appearance
 
----
+The General tab lets you:
 
-## 🛠️ Optional Settings
+- Enable or disable the HUD.
+- Lock or unlock its position.
+- Choose a HUD theme.
+- Choose a color palette, including the colorblind-friendly Okabe-Ito palette.
+- Select labels: None, Percentage, Number, or Both.
+- Adjust opacity, scale, and bar length where supported by the selected theme.
+- Show or hide the minimap button.
 
-- Freeze needs while offline to disable offline decay.
-- Enable or disable automatic emotes.
-- Adjust emote chance and minimum interval.
-- Hide the HUD when all needs are full with Immersive Mode.
-- Use custom decay bias sliders for each need.
+Available themes include Colorful, Minimalist Vertical, Minimalist Horizontal, Smooth, Blocky, Folk, Necromancer, Dastardly, and Vanguard. Some themes intentionally use icons or vertical depletion instead of regular horizontal bars.
 
----
+## Automatic emotes
 
-## 📥 Installation
+ICN2 can perform immersive emotes when a need reaches a low or critical threshold, and after successful recovery actions.
+
+You can disable automatic emotes or adjust their chance and minimum interval in the General tab. Emotes are suppressed during combat.
+
+## Commands
+
+All commands begin with `/icn2`.
+
+| Command | What it does |
+|---|---|
+| `/icn2` or `/icn2 show` | Open the options menu |
+| `/icn2 status` | Print current Hunger, Thirst, and Fatigue percentages |
+| `/icn2 details` | Show a readable status report with situation, rates, recovery, and effects |
+| `/icn2 debug` | Open the technical diagnostic window |
+| `/icn2 hud` | Toggle the HUD |
+| `/icn2 lock` | Toggle HUD position locking |
+| `/icn2 reset` | Restore all needs to full |
+| `/icn2 eat` | Restore 50 Hunger |
+| `/icn2 drink` | Restore 50 Thirst |
+| `/icn2 rest` | Restore 40 Fatigue |
+| `/icn2 starve` | Set Hunger to zero |
+| `/icn2 dehydrate` | Set Thirst to zero |
+| `/icn2 exhaust` | Set Fatigue to zero |
+
+The restore and deplete commands are useful for testing or for roleplay situations where you want to set a specific state manually.
+
+## Installation
 
 1. Download ICN2 from [CurseForge](https://www.curseforge.com/wow/addons/immersive-character-needs-2).
-2. Extract the folder into your `World of Warcraft/_retail_/Interface/AddOns` directory.
+2. Extract the `ICN2` folder into `World of Warcraft/_retail_/Interface/AddOns`.
 3. Restart WoW and enable **Immersive Character Needs 2** in the AddOns menu.
 
----
+## Compatibility
 
-## ⚔️ Compatibility & Classic Flavors
+ICN2 is developed and tested for the modern Retail client. Classic Era, Season of Discovery, and Cataclysm Classic are not officially supported or maintained.
 
-- Tested with WoW version **12.1.0** (Retail).
-- Uses saved variable `ICN2DB`.
+The addon stores character data in the `ICN2DB` saved variable. Existing saved data is migrated when required, including updates to the current default decay rates.
 
-**A Note on Classic (Era, Season of Discovery, Cataclysm):**  
-I exclusively play and develop for the modern Retail client, which means I do not have the time or resources to officially support, test, or maintain ICN2 for Classic versions of the game. 
+## Known issue
 
-However, the open-source community is absolutely welcome to adapt it! If you are a developer interested in porting ICN2 to a Classic environment, please feel free to fork the project, adapt the API, and maintain a Classic-specific branch. 
+Some legacy Drink items do not apply the standard Drink aura and may not restore Thirst automatically. As a workaround, use the settings menu or `/icn2 drink`.
 
-**Source Code & GitHub Repository:**  
-[https://github.com/Anduin-Webworks/ICN2](https://github.com/Anduin-Webworks/ICN2)
+## Source and credits
 
----
+[ICN2 source code on GitHub](https://github.com/Anduin-Webworks/ICN2)
 
-## 🚧 Known Issues
-
-- Certain legacy Drink items do not apply the “Drink” aura and may fail to restore thirst.
-  **Workaround**: Manually replenish thirst via the ICN2 settings menu or `/icn2 drink`.
-
----
-
-## 🙌 Credits
-
-Developed by **Oswaldovzki** @ Anduin Webworks.  
-Special thanks to the WoW addon community for feedback and testing.
-
----
-
-## 📄 License
-
-Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International.
+Developed by **Oswaldovzki** at Anduin Webworks. Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International.

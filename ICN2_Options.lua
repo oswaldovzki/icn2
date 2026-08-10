@@ -239,6 +239,10 @@ function ICN2:BuildOptions()
         function() return ICN2DB.settings.hudLocked end,
         function(v) ICN2DB.settings.hudLocked = v; ICN2:LockHUD(v) end)
 
+    makeCheckbox(panelGeneral, L["OPT_MINIMAP_BUTTON"], 200, -155,
+        function() return ICN2DB.settings.minimapButton end,
+        function(v) ICN2DB.settings.minimapButton = v; ICN2:SetMinimapButtonShown(v) end)
+
     makeLabel(panelGeneral, L["OPT_SEC_THEME"], 200, -6, 1, 0.8, 0)
 
     -- ── Colorblind / Palette Dropdown ──────────────────────────────────────────

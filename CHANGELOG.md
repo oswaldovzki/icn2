@@ -6,6 +6,30 @@
 - This behavior has been reported to Blizzard; it is unclear whether it is intended.
 - Workaround: Manually replenish the "Thirst" state via the ICN2 settings menu.
 
+## v2.9.0
+
+- Added an optional LDB-compatible minimap button using the ICN2 logo. 
+ - Left-click opens options.
+ - Right-click toggles the HUD
+ - Ctrl+left-click opens debug.
+- README Update
+ - Quick start and minimap controls
+ - Hunger, Thirst, and Fatigue behavior
+ - Resting, sitting, recovery, and Well Fed effects
+ - Decay presets and Custom mode
+ - HUD themes and settings
+ - Automatic emotes
+ - Complete slash-command reference
+ - Installation, compatibility, and known issues
+
+## v2.8.3
+
+### Hotfixes
+
+- Removed the temporary chat messages printed when the player sits or stands.
+- Sitting in a rested area now triggers fast-tier fatigue recovery.
+- Rested areas without a recovery trigger continue to pause fatigue decay.
+
 ## v2.8.2
 
 ### Details and Debug improvements

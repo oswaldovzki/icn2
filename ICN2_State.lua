@@ -31,7 +31,6 @@ function ICN2:SetSitting(value)
     local newValue = value and true or false
     if ICN2.State.isSitting ~= newValue then
         ICN2.State.isSitting = newValue
-        print("|cFFFF6600ICN2|r sitting state: " .. (newValue and "true" or "false"))
     end
 end
 

@@ -119,6 +119,7 @@ L["OPT_SEC_BIAS"]           = "Per-need decay bias"
 -- Options — checkboxes / sliders
 L["OPT_HUD_ENABLED"]       = "Enable HUD"
 L["OPT_HUD_LOCKED"]        = "Lock HUD position"
+L["OPT_MINIMAP_BUTTON"]    = "Show minimap button"
 L["OPT_FREEZE_OFFLINE"]    = "Freeze needs while offline  |cFF888888(no offline decay)|r"
 L["OPT_EMOTES_ENABLED"]    = "Enable automatic emotes"
 L["OPT_OPACITY"]           = "Opacity"
@@ -129,6 +130,9 @@ L["OPT_EMOTE_INTERVAL"]    = "Min interval (sec)"
 L["OPT_IMMERSIVE"]         = "Immersive Mode (Hide at 100%)"
 L["OPT_DECAY_PRESET"]      = "Global Decay Preset"
 L["OPT_HUD_SCALE"]         = "HUD Bar Scale"
+L["MINIMAP_LEFT"]           = "Left-click: Open options"
+L["MINIMAP_RIGHT"]          = "Right-click: Toggle HUD"
+L["MINIMAP_CTRL_LEFT"]      = "Ctrl-click: Open debug"
 
 -- Options — buttons
 L["BTN_EAT"]       = "|cFF00FF00Eat|r"
