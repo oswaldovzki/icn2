@@ -1,5 +1,16 @@
 # ICN2 CHANGELOG
 
+## v3.0.1
+
+- Fixed a `ipairs()` bug caused when entering combat
+- Fixed an issue with the width of the new Options Menu
+
+## v3.0.0
+
+- Reworked the Options window with a scalable two-pane layout and scrollable content.
+- Grouped settings into clear HUD, immersion, emotes, manual controls, and decay cards.
+- Improved spacing, readability, navigation, and control hit areas while preserving all existing options.
+
 ## Known Issues
 
 - Certain legacy Drink items do not apply the "Drink" aura and therefore fail to restore "Thirst".

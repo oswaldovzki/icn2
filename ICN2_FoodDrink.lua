@@ -351,6 +351,13 @@ end
 -- ── Main aura handler ────────────────────────────────────────────────────────
 -- Entry point called by Core's UNIT_AURA event with the raw updateInfo payload.
 function ICN2:OnUnitAura(updateInfo)
+    -- UNIT_AURA's delta fields can be secret tables while the player is in
+    -- combat.  Do not even inspect them here; ipairs() would reject those
+    -- protected values before the cache maintenance can inspect them.
+    if (ICN2.State and ICN2.State.inCombat) or UnitAffectingCombat("player") then
+        return
+    end
+
     -- ── Step 1: maintain the cache ────────────────────────────────────────────
     if not updateInfo then
         rebuildAuraCache()
@@ -360,7 +367,6 @@ function ICN2:OnUnitAura(updateInfo)
 
     if ICN2._auraAccessBlocked then return end
     if ICN2.State and ICN2.State.inInstance then return end
-    if UnitAffectingCombat("player") then return end
 
     local now = GetTime()
 
@@ -461,8 +467,11 @@ end
 installConsumableHooks()
 
 -- ── Stubs ─────────────────────────────────────────────────────────────────────
--- Legacy function stubs for compatibility (no longer used in current implementation)
-function ICN2:OnCombatBreakFoodDrink() end
+-- Rebuild after combat because aura deltas were intentionally ignored while
+-- their updateInfo fields were protected/secret.
+function ICN2:OnCombatBreakFoodDrink()
+    self:OnUnitAura(nil)
+end
 function ICN2:FoodDrinkTick()          end
 
 -- ── Status queries (read by Core rate engine) ─────────────────────────────────

@@ -99,7 +99,7 @@ L["TOOLTIP_HINT"]    = "|cFFAAAAAA/icn2 show|r"
 L["HUD_TITLE"]       = "Character Needs"
 
 -- Options panel — title
-L["OPT_TITLE"] = "|cFFFF6600ICN2|r – Character Needs  |cFF888888v2.5.0|r"
+L["OPT_TITLE"] = "|cFFFF6600ICN2|r – Character Needs  |cFF888888v3.0.0|r"
 
 -- Options — tab labels
 L["TAB_GENERAL"] = "General"
@@ -205,7 +205,7 @@ if GetLocale() == "ptBR" then
     L["TOOLTIP_FATIGUE"] = "Fadiga: %.1f%%"
     L["HUD_TITLE"]       = "Necessidades do Personagem"
 
-    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Necessidades do Personagem  |cFF888888v2.5.0|r"
+    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Necessidades do Personagem  |cFF888888v3.0.0|r"
     L["TAB_GENERAL"]           = "Geral"
     L["TAB_DECAY"]             = "Decaimento"
     L["OPT_SEC_HUD"]           = "HUD"
@@ -317,7 +317,7 @@ if GetLocale() == "esES" or GetLocale() == "esMX" then
     L["TOOLTIP_FATIGUE"] = "Fatiga:  %.1f%%"
     L["HUD_TITLE"]       = "Necesidades del Personaje"
 
-    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Necesidades del Personaje  |cFF888888v2.5.0|r"
+    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Necesidades del Personaje  |cFF888888v3.0.0|r"
     L["TAB_GENERAL"]           = "General"
     L["TAB_DECAY"]             = "Decaimiento"
     L["OPT_SEC_HUD"]           = "HUD"
@@ -429,7 +429,7 @@ if GetLocale() == "frFR" then
     L["TOOLTIP_FATIGUE"] = "Fatigue : %.1f%%"
     L["HUD_TITLE"]       = "Besoins du Personnage"
 
-    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Besoins du Personnage  |cFF888888v2.5.0|r"
+    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Besoins du Personnage  |cFF888888v3.0.0|r"
     L["TAB_GENERAL"]           = "Général"
     L["TAB_DECAY"]             = "Décroissance"
     L["OPT_SEC_HUD"]           = "HUD"
@@ -541,7 +541,7 @@ if GetLocale() == "deDE" then
     L["TOOLTIP_FATIGUE"] = "Erschöpfung:  %.1f%%"
     L["HUD_TITLE"]       = "Charakterbedürfnisse"
 
-    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Charakterbedürfnisse  |cFF888888v2.5.0|r"
+    L["OPT_TITLE"]             = "|cFFFF6600ICN2|r – Charakterbedürfnisse  |cFF888888v3.0.0|r"
     L["TAB_GENERAL"]           = "Allgemein"
     L["TAB_DECAY"]             = "Verfall & Raten"
     L["OPT_SEC_HUD"]           = "HUD"
