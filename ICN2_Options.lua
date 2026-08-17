@@ -1,309 +1,161 @@
 -- ============================================================
 -- ICN2_Options.lua
--- Scalable, tabbed options for HUD, immersion, emotes, manual
--- controls, and decay rates. Settings and callbacks remain unchanged.
+-- Focused controls for the Vitality Instrument and decay engine.
 -- ============================================================
 
 ICN2 = ICN2 or {}
 
-local L = setmetatable({}, { __index = function(_, k)
-    return ICN2.L and ICN2.L[k] or k
+local L = setmetatable({}, { __index = function(_, key)
+    return ICN2.L and ICN2.L[key] or key
 end })
 
-local optFrame
-local panelGeneral
-local panelDecay
-local tabBtnGeneral
-local tabBtnDecay
-local presetBtns = {}
+local optionsFrame, displayPanel, decayPanel, tabDisplay, tabDecay
 local decaySliders = {}
-local labelDropdown
-local barLengthSlider
+local styleDropdown, labelDropdown
 
-local COLORS = {
-    orange = { 1.0, 0.55, 0.08 },
-    gold = { 1.0, 0.82, 0.25 },
-    text = { 0.92, 0.92, 0.92 },
-    muted = { 0.62, 0.64, 0.68 },
-    panel = { 0.055, 0.065, 0.085, 0.96 },
-    card = { 0.075, 0.085, 0.11, 0.98 },
-    cardBorder = { 0.22, 0.24, 0.30, 0.9 },
+local C = {
+    orange = { 1.00, 0.42, 0.12 }, gold = { 1.00, 0.78, 0.24 },
+    text = { 0.90, 0.93, 0.98 }, muted = { 0.52, 0.58, 0.68 },
+    panel = { 0.018, 0.025, 0.040, 0.98 }, card = { 0.035, 0.046, 0.070, 0.98 },
+    edge = { 0.20, 0.27, 0.40 },
 }
 
-local function setTextColor(fs, color)
-    fs:SetTextColor(color[1], color[2], color[3], color[4] or 1)
+local function tint(fontString, color)
+    fontString:SetTextColor(color[1], color[2], color[3], color[4] or 1)
 end
 
 local function makeLabel(parent, text, x, y, font, color, width)
     local fs = parent:CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
     fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     if width then fs:SetWidth(width) end
-    fs:SetText(text)
-    if color then setTextColor(fs, color) end
+    fs:SetText(text or "")
+    if color then tint(fs, color) end
     return fs
 end
 
 local function makeCard(parent, title, y, height)
     local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, y)
-    -- Reserve room for Blizzard template chrome (dropdown arrows and slider
-    -- endpoint labels), which extends slightly beyond the nominal width.
-    card:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -16, y)
-    card:SetHeight(height)
-    card:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
-    card:SetBackdropColor(unpack(COLORS.card))
-    card:SetBackdropBorderColor(unpack(COLORS.cardBorder))
-    makeLabel(card, title, 16, -14, "GameFontNormalLarge", COLORS.gold)
-    local rule = card:CreateTexture(nil, "ARTWORK")
-    rule:SetPoint("TOPLEFT", card, "TOPLEFT", 16, -38)
-    rule:SetPoint("TOPRIGHT", card, "TOPRIGHT", -16, -38)
-    rule:SetHeight(1)
-    rule:SetColorTexture(1.0, 0.55, 0.08, 0.35)
-    local bottomRule = card:CreateTexture(nil, "ARTWORK")
-    bottomRule:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 16, 1)
-    bottomRule:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -16, 1)
-    bottomRule:SetHeight(1)
-    bottomRule:SetColorTexture(0.22, 0.24, 0.30, 0.9)
+    card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, y); card:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -14, y); card:SetHeight(height)
+    card:SetBackdrop({ bgFile="Interface\\Buttons\\WHITE8X8", edgeFile="Interface\\Buttons\\WHITE8X8", edgeSize=1, insets={left=1,right=1,top=1,bottom=1} })
+    card:SetBackdropColor(C.card[1],C.card[2],C.card[3],1); card:SetBackdropBorderColor(C.edge[1],C.edge[2],C.edge[3],1)
+    makeLabel(card, title, 16, -14, "GameFontNormalLarge", C.gold)
+    local line=card:CreateTexture(nil,"ARTWORK"); line:SetPoint("TOPLEFT",card,"TOPLEFT",16,-38); line:SetPoint("TOPRIGHT",card,"TOPRIGHT",-16,-38); line:SetHeight(1); line:SetColorTexture(C.orange[1],C.orange[2],C.orange[3],.35)
     return card
 end
 
-local function makeCheckbox(parent, label, x, y, getter, setter, width)
-    local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-    cb:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    cb:SetSize(26, 26)
-    cb.text:SetText(label)
-    cb.text:SetTextColor(unpack(COLORS.text))
-    cb.text:SetWidth(width or 430)
-    cb:SetChecked(getter())
-    cb:SetScript("OnClick", function(self) setter(self:GetChecked()) end)
-    return cb
+local function makeCheckbox(parent, text, x, y, getter, setter, width)
+    local check=CreateFrame("CheckButton",nil,parent,"UICheckButtonTemplate"); check:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y); check:SetSize(26,26); check.text:SetText(text); check.text:SetTextColor(C.text[1],C.text[2],C.text[3]); check.text:SetWidth(width or 430); check:SetChecked(getter())
+    check:SetScript("OnClick",function(self) setter(self:GetChecked()) end); return check
 end
 
-local function formatSliderValue(value, decimals)
-    return string.format(decimals == 0 and "%.0f" or "%.2f", value)
+local function slider(parent, text, x, y, width, minValue, maxValue, step, getter, setter, decimals)
+    local control=CreateFrame("Slider",nil,parent,"OptionsSliderTemplate"); control:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y); control:SetWidth(width); control:SetMinMaxValues(minValue,maxValue); control:SetValueStep(step); control:SetObeyStepOnDrag(true); control:SetValue(getter())
+    local function display(value) return string.format(decimals==0 and "%.0f" or "%.2f", value) end
+    control.Low:SetText(display(minValue)); control.High:SetText(display(maxValue)); control.Text:SetText(text..": "..display(getter())); control.Text:SetTextColor(C.text[1],C.text[2],C.text[3])
+    control:SetScript("OnValueChanged",function(self,value) setter(value); self.Text:SetText(text..": "..display(value)) end); return control
 end
 
-local function makeSlider(parent, labelText, x, y, width, minVal, maxVal, step, getter, setter, decimals)
-    local slider = CreateFrame("Slider", nil, parent, "OptionsSliderTemplate")
-    slider:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    slider:SetWidth(width or 280)
-    slider:SetMinMaxValues(minVal, maxVal)
-    slider:SetValueStep(step)
-    slider:SetObeyStepOnDrag(true)
-    slider:SetValue(getter())
-    slider.Low:SetText(formatSliderValue(minVal, decimals))
-    slider.High:SetText(formatSliderValue(maxVal, decimals))
-    slider.Text:SetText(labelText .. ": " .. formatSliderValue(getter(), decimals))
-    slider.Text:SetTextColor(unpack(COLORS.text))
-    slider:SetScript("OnValueChanged", function(self, val)
-        setter(val)
-        self.Text:SetText(labelText .. ": " .. formatSliderValue(val, decimals))
-    end)
-    return slider
+local function button(parent, text, x, y, width, callback)
+    local b=CreateFrame("Button",nil,parent,"UIPanelButtonTemplate"); b:SetSize(width or 110,28); b:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y); b:SetText(text); b:SetScript("OnClick",callback); return b
 end
 
-local function makeActionButton(parent, text, x, y, width, onClick)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    button:SetSize(width or 92, 28)
-    button:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    button:SetText(text)
-    button:SetScript("OnClick", onClick)
-    return button
-end
-
-local function makeSeparator(parent, x, y, width)
-    local tex = parent:CreateTexture(nil, "ARTWORK")
-    tex:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    tex:SetSize(width or 350, 1)
-    tex:SetColorTexture(0.4, 0.4, 0.4, 0.6)
-    return tex
-end
-
-local function roundBias(n) return math.floor((tonumber(n) or 0) + 0.5) end
-
-local function getBiasForUI(needKey)
-    local s = ICN2DB.settings
-    if s.preset == "custom" then
-        return roundBias((s.customDecayBias and s.customDecayBias[needKey]) or 1)
-    end
-    return roundBias(ICN2:PresetMultiplierToBiasDisplay(ICN2.PRESETS[s.preset] or 1.0))
-end
-
-local function formatBiasLabel(needLabel, sliderPos, decayMult, readOnly)
-    return string.format(L[readOnly and "BIAS_LABEL_READONLY" or "BIAS_LABEL"], needLabel, sliderPos, decayMult)
-end
-
-local function refreshDecaySliders()
-    local s, isCustom = ICN2DB.settings, ICN2DB.settings.preset == "custom"
-    local presetGlobal = ICN2.PRESETS[s.preset] or 1.0
-    for _, row in ipairs(decaySliders) do
-        local bias = getBiasForUI(row.needKey)
-        local mult = isCustom and ICN2:DecayBiasToMultiplier((s.customDecayBias and s.customDecayBias[row.needKey]) or 1) or presetGlobal
-        row.slider:SetValue(bias)
-        row.slider.Text:SetText(formatBiasLabel(row.needLabel, bias, mult, not isCustom))
-        if isCustom then row.slider:Enable() else row.slider:Disable() end
-    end
-end
-
-local function makeDecayBiasSlider(parent, needKey, needLabel, y)
-    local maxM = ICN2.CUSTOM_DECAY_MULTIPLIER_MAX or 30
-    local slider = CreateFrame("Slider", nil, parent, "OptionsSliderTemplate")
-    slider:SetPoint("TOPLEFT", parent, "TOPLEFT", 22, y)
-    slider:SetWidth(450)
-    slider:SetMinMaxValues(0, maxM)
-    slider:SetValueStep(1)
-    slider:SetObeyStepOnDrag(true)
-    slider.Low:SetText("0"); slider.High:SetText(tostring(maxM))
-    slider:SetScript("OnValueChanged", function(self, val)
-        val = math.max(0, math.min(maxM, math.floor(val + 0.5)))
-        if ICN2DB.settings.preset ~= "custom" then self:SetValue(getBiasForUI(needKey)); return end
-        ICN2DB.settings.customDecayBias = ICN2DB.settings.customDecayBias or { hunger = 1, thirst = 1, fatigue = 1 }
-        ICN2DB.settings.customDecayBias[needKey] = val
-        self.Text:SetText(formatBiasLabel(needLabel, val, ICN2:DecayBiasToMultiplier(val), false))
-    end)
-    table.insert(decaySliders, { slider = slider, needKey = needKey, needLabel = needLabel })
-    return slider
-end
-
-local function selectOptionsTab(which)
-    local general = which == 1
-    panelGeneral:SetShown(general)
-    panelDecay:SetShown(not general)
-    tabBtnGeneral:SetSelected(general)
-    tabBtnDecay:SetSelected(not general)
-    if not general then refreshDecaySliders() end
-end
-
-local function makeTabButton(parent, text, y, onClick)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetSize(144, 42)
-    b:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, y)
-    b:SetNormalFontObject("GameFontNormal")
-    b:SetHighlightFontObject("GameFontHighlight")
-    b:SetText(text)
-    b:SetScript("OnClick", onClick)
-    b:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight")
-    b.SetSelected = function(self, selected)
-        self.selected = selected
-        self:SetAlpha(selected and 1 or 0.58)
-        self:GetFontString():SetTextColor(selected and 1 or 0.78, selected and 0.82 or 0.78, selected and 0.25 or 0.78)
-    end
-    return b
-end
-
-local function UpdateThemeDependencies()
-    if not labelDropdown or not barLengthSlider then return end
-    local theme = ICN2.HUD_THEMES and ICN2.HUD_THEMES[ICN2DB.settings.barTheme or "colorful"]
-    local showBars = not (theme and theme.layout and theme.layout.showBars == false)
-    UIDropDownMenu_EnableDropDown(labelDropdown)
-    labelDropdown:SetAlpha(1)
-    if showBars then barLengthSlider:Enable(); barLengthSlider:SetAlpha(1) else barLengthSlider:Disable(); barLengthSlider:SetAlpha(0.5) end
-end
-
-local function makeDropdown(parent, name, label, x, y, width, getText, values, onSelect)
-    makeLabel(parent, label, x, y + 4, "GameFontHighlight", COLORS.muted)
-    local dropdown = CreateFrame("Frame", name, parent, "UIDropDownMenuTemplate")
-    dropdown:SetPoint("TOPLEFT", parent, "TOPLEFT", x + 112, y + 12)
-    UIDropDownMenu_SetWidth(dropdown, width or 170)
-    UIDropDownMenu_SetText(dropdown, getText())
-    UIDropDownMenu_Initialize(dropdown, function(_, level)
-        for _, item in ipairs(values()) do
-            local info = UIDropDownMenu_CreateInfo()
-            info.text, info.value, info.checked = item.label, item.id, item.id == getText(true)
-            info.func = function() onSelect(item); UIDropDownMenu_SetText(dropdown, item.label); CloseDropDownMenus() end
-            UIDropDownMenu_AddButton(info, level)
+local function dropdown(parent, name, text, x, y, width, values, selected, callback)
+    makeLabel(parent,text,x,y+4,"GameFontHighlight",C.muted)
+    local menu=CreateFrame("Frame",name,parent,"UIDropDownMenuTemplate"); menu:SetPoint("TOPLEFT",parent,"TOPLEFT",x+118,y+12); UIDropDownMenu_SetWidth(menu,width or 170); UIDropDownMenu_SetText(menu,selected())
+    UIDropDownMenu_Initialize(menu,function(_,level)
+        for _,item in ipairs(values()) do
+            local info=UIDropDownMenu_CreateInfo(); info.text=item.label; info.value=item.id; info.checked=item.id==selected(true)
+            info.func=function() callback(item); UIDropDownMenu_SetText(menu,item.label); CloseDropDownMenus() end; UIDropDownMenu_AddButton(info,level)
         end
     end)
-    return dropdown
+    return menu
+end
+
+local function biasValue(key)
+    local settings=ICN2DB.settings
+    if settings.preset=="custom" then return math.floor(((settings.customDecayBias and settings.customDecayBias[key]) or 1)+.5) end
+    return math.floor(ICN2:PresetMultiplierToBiasDisplay(ICN2.PRESETS[settings.preset] or 1)+.5)
+end
+
+local function refreshDecay()
+    local settings=ICN2DB.settings; local custom=settings.preset=="custom"; local preset=ICN2.PRESETS[settings.preset] or 1
+    for _,row in ipairs(decaySliders) do
+        local bias=biasValue(row.key); local multiplier=custom and ICN2:DecayBiasToMultiplier((settings.customDecayBias and settings.customDecayBias[row.key]) or 1) or preset
+        row.control:SetValue(bias); row.control.Text:SetText(string.format("%s: %d  (×%.2f%s)",row.title,bias,multiplier,custom and "" or "  preset")); if custom then row.control:Enable() else row.control:Disable() end
+    end
+end
+
+local function makeBias(parent, key, title, y)
+    local max=ICN2.CUSTOM_DECAY_MULTIPLIER_MAX or 30
+    local control=CreateFrame("Slider",nil,parent,"OptionsSliderTemplate"); control:SetPoint("TOPLEFT",parent,"TOPLEFT",20,y); control:SetWidth(440); control:SetMinMaxValues(0,max); control:SetValueStep(1); control:SetObeyStepOnDrag(true); control.Low:SetText("0"); control.High:SetText(tostring(max)); control:SetValue(biasValue(key))
+    control:SetScript("OnValueChanged",function(self,value)
+        value=math.floor(value+.5); if ICN2DB.settings.preset~="custom" then self:SetValue(biasValue(key)); return end
+        ICN2DB.settings.customDecayBias=ICN2DB.settings.customDecayBias or {hunger=1,thirst=1,fatigue=1}; ICN2DB.settings.customDecayBias[key]=value; self.Text:SetText(string.format("%s: %d  (×%.2f)",title,value,ICN2:DecayBiasToMultiplier(value)))
+    end)
+    control.Text:SetText(title); control.Text:SetTextColor(C.text[1],C.text[2],C.text[3]); table.insert(decaySliders,{key=key,title=title,control=control}); return control
+end
+
+local function selectTab(which)
+    local display=which==1; displayPanel:SetShown(display); decayPanel:SetShown(not display); tabDisplay:SetAlpha(display and 1 or .55); tabDecay:SetAlpha(display and .55 or 1); if not display then refreshDecay() end
+end
+
+local function themeOptions()
+    local list={}; for _,theme in ipairs(ICN2.HUD_THEME_LIST or {}) do table.insert(list,{id=theme.id,label=theme.label}) end; return list
+end
+
+local function selectedTheme(raw)
+    local id=ICN2DB.settings.barTheme or "relic"; if raw then return id end; for _,item in ipairs(themeOptions()) do if item.id==id then return item.label end end; return id
+end
+
+local function labelOptions()
+    return {{id="none",label=L["LABEL_NONE"]},{id="percentage",label=L["LABEL_PERCENTAGE"]},{id="number",label=L["LABEL_NUMBER"]},{id="both",label=L["LABEL_BOTH"]}}
+end
+
+local function selectedLabel(raw)
+    local id=ICN2DB.settings.barLabelMode or "percentage"; if raw then return id end; for _,item in ipairs(labelOptions()) do if item.id==id then return item.label end end; return id
 end
 
 function ICN2:BuildOptions()
-    optFrame = CreateFrame("Frame", "ICN2OptionsFrame", UIParent, "BasicFrameTemplateWithInset")
-    optFrame:SetSize(780, 690)
-    optFrame:SetPoint("CENTER")
-    optFrame:SetFrameStrata("HIGH")
-    optFrame:SetMovable(true); optFrame:EnableMouse(true); optFrame:RegisterForDrag("LeftButton")
-    optFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
-    optFrame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
-    optFrame:Hide()
-    optFrame.TitleText:SetText(L["OPT_TITLE"])
+    optionsFrame=CreateFrame("Frame","ICN2OptionsFrame",UIParent,"BasicFrameTemplateWithInset"); optionsFrame:SetSize(700,650); optionsFrame:SetPoint("CENTER"); optionsFrame:SetFrameStrata("HIGH"); optionsFrame:SetMovable(true); optionsFrame:EnableMouse(true); optionsFrame:RegisterForDrag("LeftButton"); optionsFrame:SetScript("OnDragStart",function(self) self:StartMoving() end); optionsFrame:SetScript("OnDragStop",function(self) self:StopMovingOrSizing() end); optionsFrame:Hide(); optionsFrame.TitleText:SetText(L["OPT_TITLE"])
+    local sidebar=CreateFrame("Frame",nil,optionsFrame,"BackdropTemplate"); sidebar:SetPoint("TOPLEFT",optionsFrame,"TOPLEFT",8,-28); sidebar:SetPoint("BOTTOMLEFT",optionsFrame,"BOTTOMLEFT",8,8); sidebar:SetWidth(150); sidebar:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"}); sidebar:SetBackdropColor(C.panel[1],C.panel[2],C.panel[3],1)
+    makeLabel(sidebar,"ICN2",18,-24,"GameFontNormalLarge",C.orange); makeLabel(sidebar,"VITALITY",18,-47,"GameFontHighlightSmall",C.muted)
+    tabDisplay=button(sidebar,L["OPT_SEC_HUD"],10,-78,130,function() selectTab(1) end); tabDisplay:SetNormalFontObject("GameFontNormal"); tabDisplay:SetHighlightFontObject("GameFontHighlight")
+    tabDecay=button(sidebar,L["TAB_DECAY"],10,-124,130,function() selectTab(2) end); tabDecay:SetNormalFontObject("GameFontNormal"); tabDecay:SetHighlightFontObject("GameFontHighlight")
+    makeLabel(sidebar,"3.0.1",18,-188,"GameFontDisableSmall",C.muted); makeLabel(sidebar,"Changes apply instantly",18,-211,"GameFontDisableSmall",C.muted,120)
+    local content=CreateFrame("Frame",nil,optionsFrame); content:SetPoint("TOPLEFT",sidebar,"TOPRIGHT",12,0); content:SetPoint("BOTTOMRIGHT",optionsFrame,"BOTTOMRIGHT",-14,8)
+    local scroll=CreateFrame("ScrollFrame",nil,content,"UIPanelScrollFrameTemplate"); scroll:SetPoint("TOPLEFT",content,"TOPLEFT",0,-4); scroll:SetPoint("BOTTOMRIGHT",content,"BOTTOMRIGHT",-16,4)
+    local child=CreateFrame("Frame",nil,scroll); child:SetWidth(500); child:SetHeight(950); scroll:SetScrollChild(child)
+    displayPanel=CreateFrame("Frame",nil,child); displayPanel:SetAllPoints(child); decayPanel=CreateFrame("Frame",nil,child); decayPanel:SetAllPoints(child); decayPanel:Hide()
 
-    local sidebar = CreateFrame("Frame", nil, optFrame, "BackdropTemplate")
-    sidebar:SetPoint("TOPLEFT", optFrame, "TOPLEFT", 8, -28); sidebar:SetPoint("BOTTOMLEFT", optFrame, "BOTTOMLEFT", 8, 8); sidebar:SetWidth(168)
-    sidebar:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" }); sidebar:SetBackdropColor(0.035, 0.04, 0.055, 0.96)
-    makeLabel(sidebar, "ICN2", 18, -24, "GameFontNormalLarge", COLORS.orange)
-    makeLabel(sidebar, "Character needs", 18, -47, "GameFontHighlightSmall", COLORS.muted)
-    tabBtnGeneral = makeTabButton(sidebar, L["TAB_GENERAL"], -78, function() selectOptionsTab(1) end)
-    tabBtnDecay = makeTabButton(sidebar, L["TAB_DECAY"], -124, function() selectOptionsTab(2) end)
-    makeLabel(sidebar, "3.0.0", 18, -184, "GameFontDisableSmall", COLORS.muted)
-    makeLabel(sidebar, "Changes apply instantly", 18, -207, "GameFontDisableSmall", COLORS.muted, 130)
+    local display=makeCard(displayPanel,L["OPT_SEC_HUD"],-4,350)
+    makeCheckbox(display,L["OPT_HUD_ENABLED"],18,-54,function() return ICN2DB.settings.hudEnabled end,function(value) ICN2DB.settings.hudEnabled=value; ICN2:UpdateHUD() end,220)
+    makeCheckbox(display,L["OPT_HUD_LOCKED"],18,-84,function() return ICN2DB.settings.hudLocked end,function(value) ICN2DB.settings.hudLocked=value; ICN2:LockHUD(value or ICN2DB.settings.hudAttached) end,220)
+    makeCheckbox(display,L["OPT_HUD_ATTACH"],18,-114,function() return ICN2DB.settings.hudAttached end,function(value) ICN2DB.settings.hudAttached=value; ICN2:ApplyHUDAnchor(); ICN2:LockHUD(value or ICN2DB.settings.hudLocked) end,280)
+    makeCheckbox(display,L["OPT_MINIMAP_BUTTON"],18,-144,function() return ICN2DB.settings.minimapButton end,function(value) ICN2DB.settings.minimapButton=value; ICN2:SetMinimapButtonShown(value) end,220)
+    styleDropdown=dropdown(display,"ICN2ThemeDropdown",L["OPT_HUD_STYLE"],18,-183,190,themeOptions,selectedTheme,function(item) ICN2:SetBarTheme(item.id); UIDropDownMenu_SetText(styleDropdown,item.label) end)
+    labelDropdown=dropdown(display,"ICN2LabelDropdown",L["OPT_SEC_LABEL_MODE"],18,-225,190,labelOptions,selectedLabel,function(item) ICN2DB.settings.barLabelMode=item.id; ICN2:UpdateHUD(); UIDropDownMenu_SetText(labelDropdown,item.label) end)
+    slider(display,L["OPT_OPACITY"],18,-286,205,.1,1,.05,function() return ICN2DB.settings.hudAlpha end,function(value) ICN2DB.settings.hudAlpha=value; local frame=_G["ICN2HUDFrame"]; if frame then frame:SetAlpha(value) end end,2)
+    slider(display,L["OPT_SCALE"],270,-286,190,.5,2,.1,function() return ICN2DB.settings.hudScale end,function(value) ICN2DB.settings.hudScale=value; ICN2:ApplyHUDTheme(ICN2DB.settings.barTheme) end,2)
+    button(display,L["OPT_BTN_CENTER"],18,-326,125,function() ICN2DB.settings.hudAttached=false; ICN2DB.settings.hudPosition={point="CENTER",relPoint="CENTER",x=0,y=0}; ICN2:ApplyHUDAnchor() end)
 
-    local content = CreateFrame("Frame", nil, optFrame)
-    content:SetPoint("TOPLEFT", sidebar, "TOPRIGHT", 12, 0); content:SetPoint("BOTTOMRIGHT", optFrame, "BOTTOMRIGHT", -14, 8)
-    local scroll = CreateFrame("ScrollFrame", nil, content, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -4); scroll:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -16, 4)
-    local scrollChild = CreateFrame("Frame", nil, scroll)
-    -- Keep the scroll child inside the window's usable width. The old 575px
-    -- child was wider than the viewport at the default UI scale and clipped
-    -- the right-hand HUD controls.
-    scrollChild:SetWidth(540); scrollChild:SetHeight(1010); scroll:SetScrollChild(scrollChild)
-    panelGeneral = CreateFrame("Frame", nil, scrollChild); panelGeneral:SetAllPoints(scrollChild)
-    panelDecay = CreateFrame("Frame", nil, scrollChild); panelDecay:SetAllPoints(scrollChild); panelDecay:Hide()
+    local roleplay=makeCard(displayPanel,L["OPT_SEC_IMMERSION"],-366,152)
+    makeCheckbox(roleplay,L["OPT_FREEZE_OFFLINE"],18,-54,function() return ICN2DB.settings.freezeOfflineNeeds end,function(value) ICN2DB.settings.freezeOfflineNeeds=value end,430)
+    makeCheckbox(roleplay,L["OPT_EMOTES_ENABLED"],18,-84,function() return ICN2DB.settings.emotesEnabled end,function(value) ICN2DB.settings.emotesEnabled=value end,250)
+    slider(roleplay,L["OPT_EMOTE_CHANCE"],18,-125,205,0,1,.05,function() return ICN2DB.settings.emoteChance end,function(value) ICN2DB.settings.emoteChance=value end,2)
+    slider(roleplay,L["OPT_EMOTE_INTERVAL"],270,-125,190,30,600,10,function() return ICN2DB.settings.emoteMinInterval end,function(value) ICN2DB.settings.emoteMinInterval=value end,0)
 
-    local hud = makeCard(panelGeneral, L["OPT_SEC_HUD"], -4, 330)
-    makeCheckbox(hud, L["OPT_HUD_ENABLED"], 18, -52, function() return ICN2DB.settings.hudEnabled end, function(v) ICN2DB.settings.hudEnabled = v; ICN2:UpdateHUD() end, 235)
-    makeCheckbox(hud, L["OPT_HUD_LOCKED"], 18, -82, function() return ICN2DB.settings.hudLocked end, function(v) ICN2DB.settings.hudLocked = v; ICN2:LockHUD(v) end, 235)
-    makeCheckbox(hud, L["OPT_MINIMAP_BUTTON"], 18, -112, function() return ICN2DB.settings.minimapButton end, function(v) ICN2DB.settings.minimapButton = v; ICN2:SetMinimapButtonShown(v) end, 235)
-    makeSlider(hud, L["OPT_OPACITY"], 18, -190, 210, 0.1, 1.0, 0.05, function() return ICN2DB.settings.hudAlpha end, function(v) ICN2DB.settings.hudAlpha = v; local f = _G["ICN2HUDFrame"]; if f then f:SetAlpha(v) end end, 2)
-    makeSlider(hud, L["OPT_SCALE"], 275, -190, 200, 0.5, 2.0, 0.1, function() return ICN2DB.settings.hudScale end, function(v) ICN2DB.settings.hudScale = v; local f = _G["ICN2HUDFrame"]; if f then f:SetScale(v) end end, 2)
-    barLengthSlider = makeSlider(hud, L["OPT_BAR_LENGTH"], 18, -262, 220, 0.5, 1.5, 0.05, function() return ICN2DB.settings.hudBarScale or 1 end, function(v) ICN2DB.settings.hudBarScale = v; ICN2:ResizeBarLength() end, 2)
-    local themeValues = function() local result = {}; for _, t in ipairs(ICN2.HUD_THEME_LIST or {}) do table.insert(result, { id = t.id, label = t.label }) end; return result end
-    local themeText = function(raw) local id = ICN2DB.settings.barTheme or "smooth"; if raw then return id end; for _, t in ipairs(themeValues()) do if t.id == id then return t.label end end; return id end
-    makeDropdown(hud, "ICN2ThemeDropdown", L["OPT_SEC_THEME"], 245, -48, 125, themeText, themeValues, function(item) ICN2:SetBarTheme(item.id); UpdateThemeDependencies() end)
-    local palettes = function() local result = {}; for name in pairs(ICN2.Palettes or {}) do table.insert(result, { id = name, label = name:gsub("_", " ") }) end; table.sort(result, function(a,b) return a.label < b.label end); return result end
-    local paletteText = function(raw) local id = ICN2DB.settings.colorPalette or "Default"; return raw and id or id:gsub("_", " ") end
-    makeDropdown(hud, "ICN2PaletteDropdown", "Color Palette", 245, -96, 125, paletteText, palettes, function(item) ICN2DB.settings.colorPalette = item.id; ICN2:UpdateHUD() end)
-    local labelModes = function() return { {id="none",label=L["LABEL_NONE"]}, {id="percentage",label=L["LABEL_PERCENTAGE"]}, {id="number",label=L["LABEL_NUMBER"]}, {id="both",label=L["LABEL_BOTH"]} } end
-    local labelText = function(raw) local id = ICN2DB.settings.barLabelMode or "percentage"; if raw then return id end; for _, item in ipairs(labelModes()) do if item.id == id then return item.label end end end
-    labelDropdown = makeDropdown(hud, "ICN2LabelDropdown", L["OPT_SEC_LABEL_MODE"], 245, -144, 125, labelText, labelModes, function(item) ICN2DB.settings.barLabelMode = item.id; ICN2:UpdateHUD() end)
+    local manual=makeCard(displayPanel,L["OPT_SEC_MANUAL_RESTORE"],-528,180)
+    button(manual,L["BTN_EAT"],18,-54,100,function() ICN2:Eat(50) end); button(manual,L["BTN_DRINK"],126,-54,100,function() ICN2:Drink(50) end); button(manual,L["BTN_REST"],234,-54,100,function() ICN2:Rest(40) end); button(manual,L["BTN_RESET"],342,-54,100,function() ICN2DB.hunger=ICN2:GetMaxValue("hunger"); ICN2DB.thirst=ICN2:GetMaxValue("thirst"); ICN2DB.fatigue=ICN2:GetMaxValue("fatigue"); ICN2:UpdateHUD() end)
+    makeLabel(manual,L["OPT_SEC_MANUAL_DEPLETE"],18,-102,"GameFontNormal",C.gold); button(manual,L["BTN_STARVE"],18,-128,100,function() ICN2DB.hunger=0; ICN2:UpdateHUD() end); button(manual,L["BTN_DEHYDRATE"],126,-128,100,function() ICN2DB.thirst=0; ICN2:UpdateHUD() end); button(manual,L["BTN_EXHAUST"],234,-128,100,function() ICN2DB.fatigue=0; ICN2:UpdateHUD() end)
 
-    local immersion = makeCard(panelGeneral, L["OPT_SEC_IMMERSION"], -346, 112)
-    makeCheckbox(immersion, L["OPT_FREEZE_OFFLINE"], 18, -52, function() return ICN2DB.settings.freezeOfflineNeeds end, function(v) ICN2DB.settings.freezeOfflineNeeds = v end)
-    makeLabel(immersion, L["OPT_FOOD_AUTO"], 52, -82, "GameFontHighlightSmall", COLORS.muted, 480)
-
-    local emotes = makeCard(panelGeneral, L["OPT_SEC_EMOTES"], -470, 164)
-    makeCheckbox(emotes, L["OPT_EMOTES_ENABLED"], 18, -52, function() return ICN2DB.settings.emotesEnabled end, function(v) ICN2DB.settings.emotesEnabled = v end)
-    makeSlider(emotes, L["OPT_EMOTE_CHANCE"], 18, -94, 210, 0, 1, 0.05, function() return ICN2DB.settings.emoteChance end, function(v) ICN2DB.settings.emoteChance = v end, 2)
-    makeSlider(emotes, L["OPT_EMOTE_INTERVAL"], 275, -94, 200, 30, 600, 10, function() return ICN2DB.settings.emoteMinInterval end, function(v) ICN2DB.settings.emoteMinInterval = v end, 0)
-
-    local manual = makeCard(panelGeneral, L["OPT_SEC_MANUAL_RESTORE"], -646, 202)
-    makeActionButton(manual, L["BTN_EAT"], 18, -52, 108, function() ICN2:Eat(50) end); makeActionButton(manual, L["BTN_DRINK"], 136, -52, 108, function() ICN2:Drink(50) end); makeActionButton(manual, L["BTN_REST"], 254, -52, 108, function() ICN2:Rest(40) end); makeActionButton(manual, L["BTN_RESET"], 372, -52, 108, function() ICN2DB.hunger=ICN2:GetMaxValue("hunger"); ICN2DB.thirst=ICN2:GetMaxValue("thirst"); ICN2DB.fatigue=ICN2:GetMaxValue("fatigue"); ICN2:UpdateHUD() end)
-    makeLabel(manual, L["OPT_SEC_MANUAL_DEPLETE"], 18, -102, "GameFontNormal", COLORS.gold)
-    makeActionButton(manual, L["BTN_STARVE"], 18, -126, 108, function() ICN2DB.hunger=0; ICN2:UpdateHUD() end); makeActionButton(manual, L["BTN_DEHYDRATE"], 136, -126, 108, function() ICN2DB.thirst=0; ICN2:UpdateHUD() end); makeActionButton(manual, L["BTN_EXHAUST"], 254, -126, 108, function() ICN2DB.fatigue=0; ICN2:UpdateHUD() end)
-
-    local decay = makeCard(panelDecay, L["OPT_SEC_DECAY_PRESET"], -4, 500)
-    local presets = { "fast", "medium", "slow", "realistic", "custom" }
-    presetBtns = {}
-    for i, p in ipairs(presets) do
-        local button = makeActionButton(decay, p:sub(1,1):upper()..p:sub(2), 18 + (i-1)*88, -52, 84, function() ICN2DB.settings.preset=p; for name,b in pairs(presetBtns) do b:SetAlpha(name==p and 1 or 0.55) end; refreshDecaySliders() end)
-        presetBtns[p] = button
-    end
-    makeLabel(decay, string.format(L["DESC_DECAY_LONG"], ICN2.CUSTOM_DECAY_MULTIPLIER_MAX or 30), 18, -94, "GameFontHighlightSmall", COLORS.muted, 460)
-    makeLabel(decay, L["OPT_SEC_BIAS"], 18, -178, "GameFontNormal", COLORS.gold)
-    makeDecayBiasSlider(decay, "hunger", L["HUNGER"], -208); makeDecayBiasSlider(decay, "thirst", L["THIRST"], -278); makeDecayBiasSlider(decay, "fatigue", L["FATIGUE"], -348)
-    refreshDecaySliders()
-
-    optFrame:SetScript("OnShow", function() refreshDecaySliders(); for p,b in pairs(presetBtns) do b:SetAlpha(ICN2DB.settings.preset==p and 1 or 0.55) end end)
-    selectOptionsTab(1)
-    UpdateThemeDependencies()
+    local decay=makeCard(decayPanel,L["OPT_SEC_DECAY_PRESET"],-4,500); local presets={"fast","medium","slow","realistic","custom"}
+    for i,preset in ipairs(presets) do button(decay,preset:sub(1,1):upper()..preset:sub(2),18+(i-1)*88,-54,82,function() ICN2DB.settings.preset=preset; refreshDecay() end) end
+    makeLabel(decay,L["DESC_DECAY_LONG"]:format(ICN2.CUSTOM_DECAY_MULTIPLIER_MAX or 30),18,-96,"GameFontHighlightSmall",C.muted,460); makeLabel(decay,L["OPT_SEC_BIAS"],18,-180,"GameFontNormal",C.gold)
+    decaySliders={}; makeBias(decay,"hunger",L["HUNGER"],-210); makeBias(decay,"thirst",L["THIRST"],-280); makeBias(decay,"fatigue",L["FATIGUE"],-350)
+    optionsFrame:SetScript("OnShow",function() refreshDecay(); UIDropDownMenu_SetText(styleDropdown,selectedTheme()); UIDropDownMenu_SetText(labelDropdown,selectedLabel()) end); selectTab(1)
 end
 
 function ICN2:ToggleOptions()
-    if not optFrame then self:BuildOptions() end
-    if optFrame:IsShown() then optFrame:Hide() else optFrame:Show() end
+    if not optionsFrame then self:BuildOptions() end
+    if optionsFrame:IsShown() then optionsFrame:Hide() else optionsFrame:Show() end
 end
