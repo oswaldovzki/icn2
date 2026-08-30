@@ -1,5 +1,24 @@
 # ICN2 CHANGELOG
 
+## v3.1.1
+
+- Fixed a `ipairs()` bug caused when entering combat. Again.
+
+## v3.1.0
+
+### Critical warnings and cues
+
+- Added optional, low-opacity screen-edge warnings when Hunger, Thirst, or Fatigue enters the critical tier.
+- Reworked the warning presentation to use separate top-screen assets for Hunger, Thirst, and Fatigue, with three 2-second pulses: one second growing and one second shrinking.
+- Added a subtle sound cue when a need becomes critical.
+- Added reminder cooldowns so sound cues do not repeat every engine tick.
+- Added independent per-need warning toggles for Hunger, Thirst, and Fatigue.
+- Added configurable visual opacity, reminder interval, sound enablement, and combat behavior.
+- Added visual and sound preview controls to the options menu.
+- Added alert state, cooldown, and suppression information to `/icn2 debug`.
+- Added saved-variable migration support for the new 3.1.0 settings.
+- Updated the player guide with practical warning and cue behavior.
+
 ## v3.0.1
 
 - Fixed a `ipairs()` bug caused when entering combat

@@ -69,6 +69,20 @@ ICN2 can perform immersive emotes when a need reaches a low or critical threshol
 
 You can disable automatic emotes or adjust their chance and minimum interval in the General tab. Emotes are suppressed during combat.
 
+## Critical warnings and cues
+
+When Hunger, Thirst, or Fatigue reaches the critical threshold (15% or less), ICN2 can provide a quiet reminder so you do not miss the need while focused on other gameplay.
+
+- A need-specific warning asset appears along the top of the screen.
+- Each critical cue pulses three times, growing for one second and shrinking for one second.
+- The warning uses the need's color and stays away from the center of the screen.
+- A subtle sound plays when entering the critical tier.
+- Sound reminders repeat only after the configured interval, rather than on every update.
+- Warnings can be enabled independently for Hunger, Thirst, and Fatigue.
+- Visual opacity, sound, combat behavior, and reminder interval are configurable.
+
+The feature is enabled by default with conservative settings. Open `/icn2`, then use **Critical warnings & cues** to preview the visual warning or test the sound. Cues are designed to support immersion and can be disabled independently from automatic emotes.
+
 ## Commands
 
 All commands begin with `/icn2`.
