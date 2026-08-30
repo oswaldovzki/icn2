@@ -469,6 +469,7 @@ end
     ICN2._lastRates = rates
 
     ICN2:UpdateHUD()
+    ICN2:UpdateAlerts()
     ICN2:CheckEmotes(oldH, oldT, oldF)
 end
 
@@ -477,6 +478,7 @@ function ICN2:Eat(amount)
     local maxH = ICN2:GetMaxValue("hunger")
     ICN2DB.hunger = clamp(ICN2DB.hunger + (amount or 50), maxH)
     self:UpdateHUD()
+    self:UpdateAlerts()
     self:TriggerEmote("satisfied", "hunger")
 end
 
@@ -484,6 +486,7 @@ function ICN2:Drink(amount)
     local maxT = ICN2:GetMaxValue("thirst")
     ICN2DB.thirst = clamp(ICN2DB.thirst + (amount or 50), maxT)
     self:UpdateHUD()
+    self:UpdateAlerts()
     self:TriggerEmote("satisfied", "thirst")
 end
 
@@ -491,6 +494,7 @@ function ICN2:Rest(amount)
     local maxF = ICN2:GetMaxValue("fatigue")
     ICN2DB.fatigue = clamp(ICN2DB.fatigue + (amount or 50), maxF)
     self:UpdateHUD()
+    self:UpdateAlerts()
     self:TriggerEmote("satisfied", "fatigue")
 end
 
@@ -517,6 +521,7 @@ frame:SetScript("OnEvent", function(self, event, ...)
             initDB()
             ICN2:BuildHUD()
             ICN2:BuildOptions()
+            ICN2:InitAlerts()
             ICN2:InitMinimapButton()
             print("|cFFFF6600ICN2|r " .. L["MSG_LOADED"])
         end
@@ -529,6 +534,7 @@ frame:SetScript("OnEvent", function(self, event, ...)
             ICN2:InitAuraCache()
         end)
         ICN2:UpdateHUD()
+        ICN2:UpdateAlerts(true)
 
     elseif event == "PLAYER_LOGOUT" then
         ICN2DB.lastLogout = time()
@@ -830,15 +836,15 @@ SlashCmdList["ICN2"] = function(msg) -- handles slash commands for showing the o
         ICN2DB.hunger  = ICN2:GetMaxValue("hunger")
         ICN2DB.thirst  = ICN2:GetMaxValue("thirst")
         ICN2DB.fatigue = ICN2:GetMaxValue("fatigue")
-        ICN2:UpdateHUD(); print("|cFFFF6600ICN2|r " .. L["MSG_RESET"])
+        ICN2:UpdateHUD(); ICN2:UpdateAlerts(); print("|cFFFF6600ICN2|r " .. L["MSG_RESET"])
     elseif msg == "starve" then
-        ICN2DB.hunger = 0; ICN2:UpdateHUD()
+        ICN2DB.hunger = 0; ICN2:UpdateHUD(); ICN2:UpdateAlerts()
         print(string.format("|cFFFF6600ICN2|r " .. L["MSG_SET_ZERO"], "|cFF00FF00" .. L["HUNGER"] .. "|r"))
     elseif msg == "dehydrate" then
-        ICN2DB.thirst = 0; ICN2:UpdateHUD()
+        ICN2DB.thirst = 0; ICN2:UpdateHUD(); ICN2:UpdateAlerts()
         print(string.format("|cFFFF6600ICN2|r " .. L["MSG_SET_ZERO"], "|cFF4499FF" .. L["THIRST"] .. "|r"))
     elseif msg == "exhaust" then
-        ICN2DB.fatigue = 0; ICN2:UpdateHUD()
+        ICN2DB.fatigue = 0; ICN2:UpdateHUD(); ICN2:UpdateAlerts()
         print(string.format("|cFFFF6600ICN2|r " .. L["MSG_SET_ZERO"], "|cFFFFDD00" .. L["FATIGUE"] .. "|r"))
     elseif msg == "status" then
         print(string.format("|cFFFF6600ICN2|r " .. L["STATUS_LINE"],

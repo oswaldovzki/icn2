@@ -227,11 +227,25 @@ local function rebuildAuraCache()
     ICN2._auraCache = cache
 end
 
+-- WoW can expose UNIT_AURA delta fields as protected/secret values.  Calling
+-- ipairs() on one raises an error instead of simply returning no entries, so
+-- probe the iterator call before entering any generic-for loop.
+local function safeIpairs(value)
+    local ok, iterator, state, index = pcall(ipairs, value)
+    if not ok then
+        setAuraAccessBlocked("secret")
+        return nil
+    end
+    return iterator, state, index
+end
+
 local function patchAuraCache(updateInfo)
     local cache = ICN2._auraCache
 
     if updateInfo.addedAuras then
-        for _, aura in ipairs(updateInfo.addedAuras) do
+        local iterator, state, index = safeIpairs(updateInfo.addedAuras)
+        if not iterator then return end
+        for _, aura in iterator, state, index do
             if aura.auraInstanceID then
                 local fresh, blocked = safeGetAuraDataByAuraInstanceID("player", aura.auraInstanceID)
                 if blocked then
@@ -244,7 +258,9 @@ local function patchAuraCache(updateInfo)
     end
 
     if updateInfo.updatedAuraInstanceIDs then
-        for _, id in ipairs(updateInfo.updatedAuraInstanceIDs) do
+        local iterator, state, index = safeIpairs(updateInfo.updatedAuraInstanceIDs)
+        if not iterator then return end
+        for _, id in iterator, state, index do
             local fresh, blocked = safeGetAuraDataByAuraInstanceID("player", id)
             if blocked then
                 setAuraAccessBlocked("secret")
@@ -259,7 +275,9 @@ local function patchAuraCache(updateInfo)
     end
 
     if updateInfo.removedAuraInstanceIDs then
-        for _, id in ipairs(updateInfo.removedAuraInstanceIDs) do
+        local iterator, state, index = safeIpairs(updateInfo.removedAuraInstanceIDs)
+        if not iterator then return end
+        for _, id in iterator, state, index do
             cache[id] = nil
         end
     end

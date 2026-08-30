@@ -170,6 +170,15 @@ local function getSettings()
         emotesEnabled    = s.emotesEnabled,
         emoteChance      = s.emoteChance,
         emoteMinInterval = s.emoteMinInterval,
+        alertsEnabled       = s.alertsEnabled,
+        alertSoundEnabled   = s.alertSoundEnabled,
+        alertVisualOpacity  = s.alertVisualOpacity,
+        alertReminderInterval = s.alertReminderInterval,
+        alertDuringCombat   = s.alertDuringCombat,
+        alertHunger         = s.alertHunger,
+        alertThirst         = s.alertThirst,
+        alertFatigue        = s.alertFatigue,
+        alertSound          = s.alertSound,
         freezeOfflineNeeds = s.freezeOfflineNeeds,
     }
 end
@@ -350,6 +359,8 @@ local function buildSnapshot()
         food_drink = getFoodDrinkState(),
 
         fatigue_recovery = getFatigueRecovery(),
+
+        alerts = ICN2.GetAlertDebugState and ICN2:GetAlertDebugState() or { error = "alerts not initialized" },
 
         settings = getSettings(),
     }

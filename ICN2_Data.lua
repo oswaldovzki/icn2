@@ -10,7 +10,7 @@ local L = setmetatable({}, { __index = function(_, k)
 end })
 
 -- Reset savedvariables.decayrates to new 2.0 logic
-local CURRENT_VERSION = 301
+local CURRENT_VERSION = 310
 
 function ICN2:RunMigrations()
     if not ICN2DB.settings then
@@ -51,6 +51,11 @@ function ICN2:RunMigrations()
         end
         ICN2DB.version = CURRENT_VERSION
         print("|cFFFF6600ICN2|r: Decay rates loaded from current defaults.")
+    end
+
+    if not ICN2DB.version or ICN2DB.version < 310 then
+        ICN2DB.version = CURRENT_VERSION
+        print("|cFFFF6600ICN2|r: Critical warnings added in v3.1.0.")
     end
 end
 
@@ -105,6 +110,17 @@ ICN2.DEFAULTS = {
         emotesEnabled    = true,
         emoteChance      = 0.3,  -- probability per threshold crossing (0-1)
         emoteMinInterval = 120,  -- minimum seconds between emotes
+
+        -- Critical visual and sound cues
+        alertsEnabled       = true,
+        alertSoundEnabled   = true,
+        alertVisualOpacity  = 0.12,
+        alertReminderInterval = 600,
+        alertDuringCombat   = false,
+        alertSound          = "subtle",
+        alertHunger         = true,
+        alertThirst         = true,
+        alertFatigue        = true,
 
         -- Color Palettes
         colorPalette = "Default",

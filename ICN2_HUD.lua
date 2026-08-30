@@ -48,7 +48,7 @@ local function MergeTheme(base, override)
             result[k] = MergeTheme(v, override[k])
         else
             -- If user explicitly overrides (even with false or ""), use it.
-            if override[k] ~= nil then 
+            if override[k] ~= nil then
                 result[k] = override[k]
             else
                 result[k] = v
@@ -102,7 +102,7 @@ ICN2.THEME_BASE = {
         iconAnchor  = { point = "LEFT", relPoint = "LEFT", x = 0, y = 0 },
         barAnchor   = { point = "LEFT", relPoint = "LEFT", x = 30, y = 0 },
         glyphAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -2, y = 0 },
-        
+
         -- Header Buttons
         headerBtnAnchor = { point = "RIGHT", relPoint = "RIGHT", x = -6, y = -4 },
         headerTitleAnchor = { point = "LEFT", relPoint = "LEFT", x = 12, y = 0 },
@@ -116,50 +116,50 @@ ICN2.THEME_BASE = {
         fontSize         = 10,
         fontFlags        = "OUTLINE",
     },
-    
+
     assets = {
         -- Bar Fill Textures (primary texture for smooth bars)
         barBg       = { 0.12, 0.12, 0.12, 0.9 },  -- NEW: Default bar background color
         barOverlay  = nil,                         -- NEW: Optional overlay texture
         barFills = {
-            hunger  = ASSETS_PATH .. "ICN2_fill_hunger_bar.png",
-            thirst  = ASSETS_PATH .. "ICN2_fill_thirst_bar.png",
-            fatigue = ASSETS_PATH .. "ICN2_fill_fatigue_bar.png",
+            hunger  = ASSETS_PATH .. "icn2_fill_hunger_bar.png",
+            thirst  = ASSETS_PATH .. "icn2_fill_thirst_bar.png",
+            fatigue = ASSETS_PATH .. "icn2_fill_fatigue_bar.png",
         },
-        
+
         -- Block Texture (for blocky mode)
         blockTex = "Interface\\Buttons\\WHITE8X8",
-        
+
         -- Row & Background Elements
         rowBG       = nil,  -- Row background (spans icon + bar)
         glyphBG     = nil,  -- Glyph/indicator background
-        
+
         -- Need Icons
         icons = {
-            hunger  = ASSETS_PATH .. "ICN2_hunger_chicken.png",
-            thirst  = ASSETS_PATH .. "ICN2_thirst.png",
-            fatigue = ASSETS_PATH .. "ICN2_fatigue.png",
+            hunger  = ASSETS_PATH .. "icn2_hunger_chicken.png",
+            thirst  = ASSETS_PATH .. "icn2_thirst.png",
+            fatigue = ASSETS_PATH .. "icn2_fatigue.png",
         },
-        
+
         -- Status Indicators (NEW: Complete set in THEME_BASE for all themes to inherit)
         indicators = {
-            stable = ASSETS_PATH .. "ICN2_paused.png",
-            up1    = ASSETS_PATH .. "ICN2_up_1.png",
-            up2    = ASSETS_PATH .. "ICN2_up_2.png",
-            up3    = ASSETS_PATH .. "ICN2_up_3.png",
-            down1  = ASSETS_PATH .. "ICN2_down_1.png",
-            down2  = ASSETS_PATH .. "ICN2_down_2.png",
-            down3  = ASSETS_PATH .. "ICN2_down_3.png",
+            stable = ASSETS_PATH .. "icn2_paused.png",
+            up1    = ASSETS_PATH .. "icn2_up_1.png",
+            up2    = ASSETS_PATH .. "icn2_up_2.png",
+            up3    = ASSETS_PATH .. "icn2_up_3.png",
+            down1  = ASSETS_PATH .. "icn2_down_1.png",
+            down2  = ASSETS_PATH .. "icn2_down_2.png",
+            down3  = ASSETS_PATH .. "icn2_down_3.png",
         },
-        
+
         -- Header Buttons
         headerBtns = {
-            btn1 = ASSETS_PATH .. "ICN2_details.png",
-            btn2 = ASSETS_PATH .. "ICN2_settings.png",
-            btn3 = ASSETS_PATH .. "ICN2_quick-rest.png",
+            btn1 = ASSETS_PATH .. "icn2_details.png",
+            btn2 = ASSETS_PATH .. "icn2_settings.png",
+            btn3 = ASSETS_PATH .. "icn2_quick-rest.png",
         }
     },
-    
+
     chrome = {
         bgCenter      = { 0.05, 0.05, 0.05, 0.88 },
         cornerTL      = nil, cornerTR = nil,
@@ -167,10 +167,10 @@ ICN2.THEME_BASE = {
         edgeTop       = nil, edgeBottom = nil,
         edgeLeft      = nil, edgeRight  = nil,
         titleStrip    = nil,
-        cornerSize    = 8, 
+        cornerSize    = 8,
         edgeThickness = 4,
     },
-    
+
     colors = {
         hunger  = { 0.2, 0.9, 0.2 },
         thirst  = { 0.2, 0.5, 1.0 },
@@ -203,9 +203,9 @@ ICN2.HUD_THEMES = {
         assets = {
             barBg = { 0.0, 0.0, 0.0, 0.0 },
             barFills = {
-                hunger  = ASSETS_PATH .. "ICN2_fill_hunger_bar.png",
-                thirst  = ASSETS_PATH .. "ICN2_fill_thirst_bar.png",
-                fatigue = ASSETS_PATH .. "ICN2_fill_fatigue_bar.png",
+                hunger  = ASSETS_PATH .. "icn2_fill_hunger_bar.png",
+                thirst  = ASSETS_PATH .. "icn2_fill_thirst_bar.png",
+                fatigue = ASSETS_PATH .. "icn2_fill_fatigue_bar.png",
             },
         },
     },
@@ -263,7 +263,7 @@ ICN2.HUD_THEMES = {
             showHeader = false,
             iconSize   = PixelSnap(28),
             barWidth   = PixelSnap(180),
-            barHeight  = PixelSnap(14), 
+            barHeight  = PixelSnap(14),
             glyphSize  = PixelSnap(18),
             iconAnchor = { point = "LEFT", relPoint = "LEFT", x = PixelSnap(12), y = 0 },
             barAnchor  = { point = "LEFT", relPoint = "LEFT", x = PixelSnap(48), y = 0 },
@@ -271,7 +271,7 @@ ICN2.HUD_THEMES = {
             cornerSize = PixelSnap(12), edgeThickness = PixelSnap(12),
         },
         chrome = {
-            bgCenter   = { 0.05, 0.05, 0.06, 0.85 }, 
+            bgCenter   = { 0.05, 0.05, 0.06, 0.85 },
         },
         assets = {
             barBg = { 0.08, 0.08, 0.08, 0.9 },
@@ -282,9 +282,9 @@ ICN2.HUD_THEMES = {
             },
         },
         colors = {
-            hunger  = { 0.8, 0.5, 0.2 },  
+            hunger  = { 0.8, 0.5, 0.2 },
             thirst  = { 0.3, 0.6, 0.9 },
-            fatigue = { 0.6, 0.4, 0.8 }, 
+            fatigue = { 0.6, 0.4, 0.8 },
         },
     },
 
@@ -377,8 +377,8 @@ local function getTheme(themeId)
 end
 
 -- ══ SECTION 3 — Helper Functions ═══════════════════════════════════════════════
-local function shouldPulse(assetPath, theme)  
-    return assetPath ~= theme.assets.indicators.stable  
+local function shouldPulse(assetPath, theme)
+    return assetPath ~= theme.assets.indicators.stable
 end
 
 local function getSelectedPalette()
@@ -388,7 +388,7 @@ end
 
 local function getNeedColor(key, val, theme)
     if theme.id == "colorful" and val > ICN2.THRESHOLDS.critical then
-        return 1, 1, 1 
+        return 1, 1, 1
     end
 
     if val <= ICN2.THRESHOLDS.critical then return 0.9, 0.1, 0.1
@@ -398,10 +398,10 @@ local function getNeedColor(key, val, theme)
         local palette = (paletteId ~= "Default") and getSelectedPalette() or nil
         local fc = palette and palette[key]
         if fc then return fc[1], fc[2], fc[3] end
-        
+
         local tc = theme.colors and theme.colors[key]
         if tc then return tc[1], tc[2], tc[3] end
-        
+
         return 1, 1, 1
     end
 end
@@ -500,19 +500,19 @@ function ICN2:BuildHUD()
 
     -- Content
     contentFrame = CreateFrame("Frame", nil, hudFrame)
-    
+
     for _, key in ipairs(NEED_KEYS) do
         local rowFrame = CreateFrame("Frame", "ICN2Row_" .. key, contentFrame)
         local icon = rowFrame:CreateTexture(nil, "ARTWORK")
         icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
         local rowBG = rowFrame:CreateTexture(nil, "BACKGROUND")
-        
+
         local barFrame = CreateFrame("Frame", "ICN2BarFrame_" .. key, rowFrame)
-        
+
         local barBG = barFrame:CreateTexture(nil, "BACKGROUND")
         barBG:SetAllPoints()
-        
+
         local barFill = CreateFrame("StatusBar", "ICN2BarFill_" .. key, barFrame)
         barFill:SetAllPoints()
         barFill:SetMinMaxValues(0, 100)
@@ -520,7 +520,7 @@ function ICN2:BuildHUD()
 
         local barLabelLeft = barFill:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         local barLabelRight = barFill:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        
+
         local barOverlay = barFrame:CreateTexture(nil, "OVERLAY")
         barOverlay:SetAllPoints()
 
@@ -583,7 +583,7 @@ end
 -- ═══ SECTION 5 — Theme Engine (Layout & Styling) ══════════════════════════════
 function ICN2:ApplyHUDTheme(themeId)
     if not hudFrame then return end
-    
+
     local theme = getTheme(themeId)
     ICN2DB.settings.barTheme = theme.id
     ICN2DB.settings.blockyBars = (theme.mode == "blocky")
@@ -593,11 +593,11 @@ function ICN2:ApplyHUDTheme(themeId)
     local barScale = ICN2DB.settings.hudBarScale or 1.0
     local barWidth = math.floor(layout.barWidth * barScale)
     local isMinimalist = (theme.mode == "minimalist")
-    
+
     -- Size HUD Frame mathematically based on theme flags
     local contentW = layout.iconSize + 4 + barWidth + layout.indicatorW
     if isMinimalist then contentW = layout.iconSize end
-    
+
     local frameW = contentW + layout.chromePad * 2 + 8
     if layout.orientation == "horizontal" then
         frameW = (#NEED_KEYS * contentW) + layout.chromePad * 2
@@ -649,7 +649,7 @@ function ICN2:ApplyHUDTheme(themeId)
         local cp = math.max(layout.chromePad, theme.chrome.edgeThickness + 2)
         headerFrame:SetPoint("TOPLEFT", hudFrame, "TOPLEFT", cp, -cp)
         headerFrame:SetPoint("TOPRIGHT", hudFrame, "TOPRIGHT", -cp, -cp)
-        
+
         local titleAnchor = layout.headerTitleAnchor or { point = "LEFT", relPoint = "LEFT", x = 12, y = 0 }
         headerFrame.title:ClearAllPoints()
         headerFrame.title:SetPoint(titleAnchor.point, headerFrame, titleAnchor.relPoint, titleAnchor.x, titleAnchor.y)
@@ -669,7 +669,7 @@ function ICN2:ApplyHUDTheme(themeId)
         headerBtns[3]:ClearAllPoints()
         headerBtns[3]:SetPoint("LEFT", headerBtns[2], "RIGHT", layout.headerBtnGap, 0)
         applyTexSlot(headerBtns[3].tex, theme.assets.headerBtns.btn3)
-        
+
         contentFrame:ClearAllPoints()
         contentFrame:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -4)
     else
@@ -696,11 +696,11 @@ function ICN2:ApplyHUDTheme(themeId)
         if data then
             local rowX = (layout.orientation == "horizontal") and ((i - 1) * (contentW + layout.barGap)) or 0
             local rowY = (layout.orientation == "horizontal") and 0 or -((i - 1) * (layout.barHeight + layout.barGap))
-            
+
             data.rowFrame:SetSize(contentW, layout.barHeight)
             data.rowFrame:ClearAllPoints()
             data.rowFrame:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", rowX, rowY)
-            
+
             -- Icon
             if layout.showIcons then
                 data.icon:Show()
@@ -715,7 +715,7 @@ function ICN2:ApplyHUDTheme(themeId)
             -- Backgrounds
             if theme.assets.rowBG then applyTexSlot(data.rowBG, theme.assets.rowBG) else data.rowBG:Hide() end
             if theme.assets.glyphBG then applyTexSlot(data.indBG, theme.assets.glyphBG) else data.indBG:Hide() end
-            
+
             -- Bar Framework
             if layout.showBars or isMinimalist then
                 data.barFrame:Show()
@@ -726,7 +726,7 @@ function ICN2:ApplyHUDTheme(themeId)
                 else
                     data.barFrame:SetPoint(layout.barAnchor.point, data.rowFrame, layout.barAnchor.relPoint, layout.barAnchor.x, layout.barAnchor.y)
                 end
-                
+
                 applyTexSlot(data.barBG, theme.assets.barBg)
                 data.barBG:SetAllPoints()
 
@@ -736,7 +736,7 @@ function ICN2:ApplyHUDTheme(themeId)
                     data.barOverlay:SetPoint(layout.overlayTopLeft.point, data.barFrame, layout.overlayTopLeft.relPoint, layout.overlayTopLeft.x, layout.overlayTopLeft.y)
                     data.barOverlay:SetPoint(layout.overlayTopRight.point, data.barFrame, layout.overlayTopRight.relPoint, layout.overlayTopRight.x, layout.overlayTopRight.y)
                 elseif theme.assets.barOverlay then applyTexSlot(data.barOverlay, theme.assets.barOverlay) else data.barOverlay:Hide() end
-                
+
                 local fillTex = theme.assets.barFills and theme.assets.barFills[key]
                 data.barFill:SetStatusBarTexture(fillTex)
                 if layout.barOrientation then
@@ -748,7 +748,7 @@ function ICN2:ApplyHUDTheme(themeId)
                 if layout.showDepletionOverlay then
                     data.barBG:Hide()
                 end
-                
+
                 -- Fonts
                 data.barLabelLeft:SetFont(layout.fontFace, layout.fontSize, layout.fontFlags)
                 data.barLabelRight:SetFont(layout.fontFace, layout.fontSize, layout.fontFlags)
@@ -756,13 +756,13 @@ function ICN2:ApplyHUDTheme(themeId)
                 data.barLabelRight:ClearAllPoints()
                 data.barLabelLeft:SetPoint(layout.labelLeftAnchor.point, data.barFrame, layout.labelLeftAnchor.relPoint, layout.labelLeftAnchor.x, layout.labelLeftAnchor.y)
                 data.barLabelRight:SetPoint(layout.labelRightAnchor.point, data.barFrame, layout.labelRightAnchor.relPoint, layout.labelRightAnchor.x, layout.labelRightAnchor.y)
-                
+
                 -- Blocky Engine Generation
                 if theme.mode == "blocky" then
                     data.barFill:Hide()
                     data.barBG:Hide()
                     local blockW = (barWidth - (layout.blockGap * (layout.numBlocks - 1))) / layout.numBlocks
-                    
+
                     for b = 1, layout.numBlocks do
                         if not data.blocks[b] then
                             local t = data.barFrame:CreateTexture(nil, "OVERLAY")
@@ -815,8 +815,8 @@ function ICN2:SetBarTheme(themeId)
     ICN2:UpdateHUD()
 end
 
-function ICN2:ResizeBarLength() 
-    if hudFrame then ICN2:ApplyHUDTheme(ICN2DB.settings.barTheme) end 
+function ICN2:ResizeBarLength()
+    if hudFrame then ICN2:ApplyHUDTheme(ICN2DB.settings.barTheme) end
 end
 
 function ICN2:LockHUD(locked)
@@ -881,7 +881,7 @@ function ICN2:UpdateHUD()
             else
                 data.barFill:SetValue(val)
                 data.barFill:SetStatusBarColor(r, g, b, theme.layout.barFillAlpha)
-                
+
                 local current = ICN2DB[key] or 0
                 local maxVal  = ICN2:GetMaxValue(key)
                 local pctText = string.format("%.0f%%", val)
